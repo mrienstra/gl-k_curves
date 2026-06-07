@@ -20,6 +20,7 @@
 import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
 import { legendreDWeight }             from './legendre-endpoints.mjs';
 import { gleveal }                     from './gleval.mjs';
+import { glWeights }                   from './legendre.mjs';
 
 // ---------------------------------------------------------------------------
 // D matrix: D[r][i] encodes endpoint evaluation / differentiation of P_i
@@ -115,16 +116,22 @@ function mul4xN(A4, B, n) {
  * Build L̃_k — the modified GL-k transform matrix (n+1)×(n+1).
  *
  * eta1, eta2: tangent scaling at t=-1 and t=1.
- *   Default (null): use 1.0  (tangent = edge vector, simplest readable choice)
- *   Paper default:  1/w_0 where w_0 is the first GL quadrature weight —
- *                   this matches the GL-0 derivative magnitude at τ_0.
+ *   Default (null): 1/w_0 where w_0 is the first GL quadrature weight —
+ *                   this matches the GL-0 derivative magnitude at τ_0 (paper default).
  */
-export function buildModifiedGLKMatrix(n, k, eta1 = 1, eta2 = 1) {
+export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null) {
   // For n < 3: D is 4×(n+1) with n+1 < 4, so M = D W^{-1} D^T is rank-deficient.
   // (4 constraints, fewer than 4 unknowns → over-determined; formula requires n ≥ 3.)
   // Fall back to unmodified GL-k — tangent property trivially holds for straight lines
   // and is not well-defined for 3 points without a pseudoinverse.
   if (n < 3) return buildGLKMatrix(n, k);
+
+  // Paper default: η = 1/ω₀  (first GL quadrature weight at the leftmost node)
+  if (eta1 === null || eta2 === null) {
+    const w0 = glWeights(n)[0];
+    if (eta1 === null) eta1 = 1 / w0;
+    if (eta2 === null) eta2 = 1 / w0;
+  }
 
   const Lk   = buildGLKMatrix(n, k);
   const D    = buildD(n);
@@ -163,7 +170,7 @@ export function buildModifiedGLKMatrix(n, k, eta1 = 1, eta2 = 1) {
 /**
  * Sample the modified GL-k curve at nSamples points.
  */
-export function sampleModifiedGLK(pts, k = 1, nSamples = 200, eta1 = 1, eta2 = 1) {
+export function sampleModifiedGLK(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null) {
   const n      = pts.length - 1;
   const Ltilde = buildModifiedGLKMatrix(n, k, eta1, eta2);
   const coeffs = applyMatrix(Ltilde, pts);

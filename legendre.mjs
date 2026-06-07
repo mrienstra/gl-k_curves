@@ -66,3 +66,16 @@ export function glNodes(n) {
 
   return nodes;
 }
+
+/**
+ * Compute the n Gauss-Legendre quadrature weights corresponding to glNodes(n).
+ * Formula:  w_i = 2 / ((1 - τ_i²) * (P_n'(τ_i))²)
+ * Weights are returned in the same order as glNodes(n).
+ */
+export function glWeights(n) {
+  const nodes = glNodes(n);
+  return nodes.map(t => {
+    const { dp } = legendreAndDeriv(n, t);
+    return 2 / ((1 - t * t) * dp * dp);
+  });
+}
