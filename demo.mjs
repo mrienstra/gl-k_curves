@@ -15,8 +15,14 @@ let drag = null;   // { s: segIndex, i: ptIndex } or null
 
 // ── sizing ─────────────────────────────────────────────────────────────────
 function resize() {
-  canvas.width  = window.innerWidth - 200;
-  canvas.height = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  const w   = window.innerWidth - 200;
+  const h   = window.innerHeight;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width  = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  ctx.scale(dpr, dpr);
   draw();
 }
 window.addEventListener('resize', resize);
@@ -61,7 +67,7 @@ function drawPoints(pts, isActive) {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
   const anyPoints = segments.some(s => s.length > 0);
   if (!anyPoints) {
