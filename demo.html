@@ -34,11 +34,19 @@
   <div class="legend"><span class="swatch" style="background:#fc6;height:2px"></span> mod GL-1</div>
   <div class="legend"><span class="swatch" style="background:#555;height:1px"></span> polygon</div>
 
+  <label style="margin-top:10px">η <span id="etaVal">auto</span>
+    <input type="range" id="sldEta" min="0" max="40" step="0.5" value="0"
+           style="width:100%;margin:2px 0">
+  </label>
+  <p style="margin-top:2px;font-size:10px;color:#666">0 = paper default (1/ω₀)</p>
+
   <div id="segInfo">Seg 1 / 1</div>
 
   <button id="btnNewSeg">New segment</button>
   <button id="btnClear">Clear segment</button>
   <button id="btnReset">Reset to example</button>
+  <button id="btnCopy">Copy JSON</button>
+  <button id="btnPaste">Paste JSON</button>
 
   <p><a href="basis.html" style="color:#7bf">basis functions →</a></p>
 </div>
@@ -114,7 +122,11 @@ function draw() {
     ctx.fillText('Click to add control points', 20, 40);
   }
 
-  const N = 300;
+  const N   = 300;
+  const raw = parseFloat(document.getElementById('sldEta').value);
+  const eta = raw === 0 ? null : raw;   // 0 → paper default (null = 1/ω₀)
+  document.getElementById('etaVal').textContent = eta === null ? 'auto' : raw.toFixed(1);
+
   for (let s = 0; s < segments.length; s++) {
     const pts = segments[s];
     if (pts.length < 2) continue;
@@ -129,7 +141,7 @@ function draw() {
       if (document.getElementById('chk2').checked && pts.length >= 3)
         drawCurve(sampleGLK(pts, 2, N), '#8f8');
       if (document.getElementById('chkM1').checked && pts.length >= 4)
-        drawCurve(sampleModifiedGLK(pts, 1, N), '#fc6', 2.5);
+        drawCurve(sampleModifiedGLK(pts, 1, N, eta, eta), '#fc6', 2.5);
     } catch (e) {
       ctx.fillStyle = '#f66';
       ctx.fillText(e.message, 10, 20);
@@ -208,6 +220,48 @@ document.getElementById('btnReset').addEventListener('click', () => {
   draw();
 });
 
+document.getElementById('btnCopy').addEventListener('click', () => {
+  const rounded = segments.map(seg => seg.map(([x, y]) => [Math.round(x), Math.round(y)]));
+  const raw = parseFloat(document.getElementById('sldEta').value);
+  // Include eta only when non-default; use plain array format when no eta
+  const payload = raw === 0
+    ? rounded
+    : { segments: rounded, eta: raw };
+  const json = JSON.stringify(payload);
+  navigator.clipboard.writeText(json).catch(() => prompt('Copy this JSON:', json));
+});
+
+document.getElementById('btnPaste').addEventListener('click', async () => {
+  let text;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    text = prompt('Paste JSON here:');
+  }
+  if (!text) return;
+  try {
+    const data = JSON.parse(text);
+    // Object format: { segments: [...], eta?: number }
+    // Array format (legacy): [[x,y],...] or [[[x,y],...],...]
+    let segs, etaOverride = null;
+    if (Array.isArray(data)) {
+      segs = Array.isArray(data[0][0]) ? data : [data];
+    } else {
+      segs = data.segments;
+      if (typeof data.eta === 'number') etaOverride = data.eta;
+    }
+    segments  = segs;
+    activeSeg = 0;
+    if (etaOverride !== null) {
+      document.getElementById('sldEta').value = etaOverride;
+    }
+    draw();
+  } catch {
+    alert('Invalid JSON — expected [[x,y],...], [[[x,y],...],...], or {"segments":[...],"eta":n}');
+  }
+});
+
+document.getElementById('sldEta').addEventListener('input', draw);
 document.querySelectorAll('input[type=checkbox]').forEach(el =>
   el.addEventListener('change', draw));
 
