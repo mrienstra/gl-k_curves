@@ -61,8 +61,10 @@ export function sampleGLKFractional(pts, k = 1, nSamples = 200) {
  * Sample the modified (tangent-corrected) fractional GL-k curve.
  * Applies the same tangent operator as mod GL-k, but on top of the
  * fractionally-blended base matrix.  Requires n ≥ 3.
+ * alpha blends between no correction (0) and full correction (1); values
+ * outside [0,1] give over/under-correction.
  */
-export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null) {
+export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null, alpha = 1) {
   const n = pts.length - 1;
   if (n < 3) return sampleGLKFractional(pts, k, nSamples);  // fallback: no tangent correction
 
@@ -73,7 +75,7 @@ export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = n
   }
 
   const L      = buildGLKMatrixFractional(n, k);
-  const Ltilde = applyTangentOperator(n, L, eta1, eta2);
+  const Ltilde = applyTangentOperator(n, L, eta1, eta2, alpha);
   const coeffs = applyMatrix(Ltilde, pts);
   const out    = [];
   for (let i = 0; i < nSamples; i++) {

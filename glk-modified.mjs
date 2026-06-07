@@ -114,14 +114,17 @@ function mul4xN(A4, B, n) {
 
 /**
  * Apply the tangent operator T to an arbitrary (n+1)×(n+1) matrix L,
- * returning L̃ = L + W^{-1} D^T (D W^{-1} D^T)^{-1} (E − D L).
+ * returning L̃ = L + α · W^{-1} D^T (D W^{-1} D^T)^{-1} (E − D L).
+ *
+ * alpha=1 gives the full tangent correction; alpha=0 leaves L unchanged;
+ * values outside [0,1] are valid (over/under-correction).
  *
  * This is the core correction step, factored out so it can be applied to
  * any base matrix (integer GL-k, fractional blend, etc.).
  *
  * Requires n ≥ 3 (caller is responsible for checking).
  */
-export function applyTangentOperator(n, Lk, eta1, eta2) {
+export function applyTangentOperator(n, Lk, eta1, eta2, alpha = 1) {
   const D    = buildD(n);
   const E    = buildE(n, eta1, eta2);
   const M    = buildM(D, n);
@@ -147,7 +150,7 @@ export function applyTangentOperator(n, Lk, eta1, eta2) {
     for (let i = 0; i <= n; i++) {
       let corr = 0;
       for (let r = 0; r < 4; r++) corr += D[r][j] * C[r][i];
-      row[i] = lkRow[i] + wj * corr;
+      row[i] = lkRow[i] + alpha * wj * corr;
     }
     return row;
   });
@@ -172,20 +175,20 @@ function resolveEta(n, eta1, eta2) {
  *   Default (null): 1/w_0 where w_0 is the first GL quadrature weight —
  *                   this matches the GL-0 derivative magnitude at τ_0 (paper default).
  */
-export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null) {
+export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null, alpha = 1) {
   // For n < 3: D is 4×(n+1) with n+1 < 4, so M = D W^{-1} D^T is rank-deficient.
   // Fall back to unmodified GL-k.
   if (n < 3) return buildGLKMatrix(n, k);
   [eta1, eta2] = resolveEta(n, eta1, eta2);
-  return applyTangentOperator(n, buildGLKMatrix(n, k), eta1, eta2);
+  return applyTangentOperator(n, buildGLKMatrix(n, k), eta1, eta2, alpha);
 }
 
 /**
  * Sample the modified GL-k curve at nSamples points.
  */
-export function sampleModifiedGLK(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null) {
+export function sampleModifiedGLK(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null, alpha = 1) {
   const n      = pts.length - 1;
-  const Ltilde = buildModifiedGLKMatrix(n, k, eta1, eta2);
+  const Ltilde = buildModifiedGLKMatrix(n, k, eta1, eta2, alpha);
   const coeffs = applyMatrix(Ltilde, pts);
   const out    = [];
   for (let i = 0; i < nSamples; i++) {

@@ -49,6 +49,12 @@
   </label>
   <p style="margin-top:2px;font-size:10px;color:#666">0 = paper default (1/ω₀)</p>
 
+  <label style="margin-top:10px">mod α <span id="alphaVal">1.00</span>
+    <input type="range" id="sldAlpha" min="-0.5" max="2.5" step="0.05" value="1"
+           style="width:100%;margin:2px 0">
+  </label>
+  <p style="margin-top:2px;font-size:10px;color:#666">0 = no mod, 1 = full mod</p>
+
   <div id="segInfo">Seg 1 / 1</div>
 
   <button id="btnNewSeg">New segment</button>
@@ -138,6 +144,8 @@ function draw() {
   const raw = parseFloat(document.getElementById('sldEta').value);
   const eta = raw === 0 ? null : raw;   // 0 → paper default (null = 1/ω₀)
   document.getElementById('etaVal').textContent = eta === null ? 'auto' : raw.toFixed(1);
+  const alpha = parseFloat(document.getElementById('sldAlpha').value);
+  document.getElementById('alphaVal').textContent = alpha.toFixed(2);
 
   for (let s = 0; s < segments.length; s++) {
     const pts = segments[s];
@@ -155,15 +163,15 @@ function draw() {
       if (document.getElementById('chkFrac').checked && pts.length >= 2) {
         ctx.setLineDash([8, 3]);
         const fracSampler = document.getElementById('chkFracMod').checked && pts.length >= 4
-          ? sampleModifiedGLKFractional(pts, kFrac, N, eta, eta)
+          ? sampleModifiedGLKFractional(pts, kFrac, N, eta, eta, alpha)
           : sampleGLKFractional(pts, kFrac, N);
         drawCurve(fracSampler, '#fff', 1.5);
         ctx.setLineDash([]);
       }
       if (document.getElementById('chkM0').checked && pts.length >= 4)
-        drawCurve(sampleModifiedGLK(pts, 0, N, eta, eta), '#f5c', 2);
+        drawCurve(sampleModifiedGLK(pts, 0, N, eta, eta, alpha), '#f5c', 2);
       if (document.getElementById('chkM1').checked && pts.length >= 4)
-        drawCurve(sampleModifiedGLK(pts, 1, N, eta, eta), '#fc6', 2.5);
+        drawCurve(sampleModifiedGLK(pts, 1, N, eta, eta, alpha), '#fc6', 2.5);
     } catch (e) {
       ctx.fillStyle = '#f66';
       ctx.fillText(e.message, 10, 20);
@@ -285,6 +293,7 @@ document.getElementById('btnPaste').addEventListener('click', async () => {
 
 document.getElementById('sldK').addEventListener('input', draw);
 document.getElementById('sldEta').addEventListener('input', draw);
+document.getElementById('sldAlpha').addEventListener('input', draw);
 document.querySelectorAll('input[type=checkbox]').forEach(el =>
   el.addEventListener('change', draw));
 
