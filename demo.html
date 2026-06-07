@@ -6,7 +6,9 @@
 <style>
   body { margin: 0; background: #1a1a1a; color: #ddd; font: 14px/1.5 monospace; display: flex; }
   #sidebar { width: 200px; padding: 16px; flex-shrink: 0; }
-  canvas { cursor: crosshair; display: block; }
+  canvas { cursor: crosshair; display: block; flex-shrink: 0; }
+  #main { flex: 1; display: flex; overflow: hidden; }
+  #svgPreview { flex: 1; overflow: hidden; }
   label { display: block; margin: 6px 0 2px; }
   .legend { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
   .swatch { width: 24px; height: 3px; display: inline-block; }
@@ -63,10 +65,14 @@
   <button id="btnCopy">Copy JSON</button>
   <button id="btnPaste">Paste JSON</button>
   <button id="btnSVG">Export SVG</button>
+  <label style="margin-top:6px"><input type="checkbox" id="chkSVGPreview"> SVG preview</label>
 
   <p><a href="basis.html" style="color:#7bf">basis functions →</a></p>
 </div>
-<canvas id="c"></canvas>
+<div id="main">
+  <canvas id="c"></canvas>
+  <div id="svgPreview" style="display:none"></div>
+</div>
 
 <script type="module" src="demo.mjs"></script>
 </body>

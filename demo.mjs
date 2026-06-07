@@ -15,9 +15,11 @@ let drag = null;   // { s: segIndex, i: ptIndex } or null
 
 // ── sizing ─────────────────────────────────────────────────────────────────
 function resize() {
-  const dpr = window.devicePixelRatio || 1;
-  const w   = window.innerWidth - 200;
-  const h   = window.innerHeight;
+  const dpr          = window.devicePixelRatio || 1;
+  const previewOn    = document.getElementById('chkSVGPreview').checked;
+  const totalW       = window.innerWidth - 200;
+  const w            = previewOn ? Math.floor(totalW / 2) : totalW;
+  const h            = window.innerHeight;
   canvas.style.width  = w + 'px';
   canvas.style.height = h + 'px';
   canvas.width  = Math.round(w * dpr);
@@ -63,6 +65,33 @@ function drawPoints(pts, isActive) {
       ctx.lineWidth = 1;
       ctx.stroke();
     }
+  }
+}
+
+function updateSVGPreview() {
+  const previewEl = document.getElementById('svgPreview');
+  if (previewEl.style.display === 'none') return;
+  const rawEta = parseFloat(document.getElementById('sldEta').value);
+  const svg = buildSVG(segments, {
+    width:       canvas.clientWidth,
+    height:      canvas.clientHeight,
+    showGL0:     document.getElementById('chk0').checked,
+    showGL1:     document.getElementById('chk1').checked,
+    showGL2:     document.getElementById('chk2').checked,
+    showM0:      document.getElementById('chkM0').checked,
+    showM1:      document.getElementById('chkM1').checked,
+    showFrac:    document.getElementById('chkFrac').checked,
+    showFracMod: document.getElementById('chkFracMod').checked,
+    showPoly:    document.getElementById('chkPoly').checked,
+    kFrac:       parseFloat(document.getElementById('sldK').value),
+    eta:         rawEta === 0 ? null : rawEta,
+    alpha:       parseFloat(document.getElementById('sldAlpha').value),
+  });
+  previewEl.innerHTML = svg;
+  const svgEl = previewEl.querySelector('svg');
+  if (svgEl) {
+    svgEl.setAttribute('width', '100%');
+    svgEl.setAttribute('height', '100%');
   }
 }
 
@@ -121,6 +150,7 @@ function draw() {
 
   document.getElementById('segInfo').textContent =
     `Seg ${activeSeg + 1} / ${segments.length}`;
+  updateSVGPreview();
 }
 
 // ── interaction ────────────────────────────────────────────────────────────
@@ -231,8 +261,8 @@ document.getElementById('btnPaste').addEventListener('click', async () => {
 document.getElementById('btnSVG').addEventListener('click', () => {
   const rawEta = parseFloat(document.getElementById('sldEta').value);
   const svg = buildSVG(segments, {
-    width:       canvas.width,
-    height:      canvas.height,
+    width:       canvas.clientWidth,
+    height:      canvas.clientHeight,
     showGL0:     document.getElementById('chk0').checked,
     showGL1:     document.getElementById('chk1').checked,
     showGL2:     document.getElementById('chk2').checked,
@@ -251,6 +281,11 @@ document.getElementById('btnSVG').addEventListener('click', () => {
   a.download = 'gl-k-curves.svg';
   a.click();
   URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('chkSVGPreview').addEventListener('change', e => {
+  document.getElementById('svgPreview').style.display = e.target.checked ? 'block' : 'none';
+  resize();
 });
 
 document.getElementById('sldK').addEventListener('input', draw);
