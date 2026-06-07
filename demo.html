@@ -35,6 +35,12 @@
   <div class="legend"><span class="swatch" style="background:#f5c;height:2px"></span> mod GL-0</div>
   <div class="legend"><span class="swatch" style="background:#fc6;height:2px"></span> mod GL-1</div>
   <div class="legend"><span class="swatch" style="background:#555;height:1px"></span> polygon</div>
+  <div class="legend"><span class="swatch" style="background:repeating-linear-gradient(90deg,#fff 0,#fff 5px,transparent 5px,transparent 9px);height:1px"></span> GL-k (frac.)</div>
+
+  <label style="margin-top:10px"><input type="checkbox" id="chkFrac"> GL-k <span id="kVal">1.00</span></label>
+  <input type="range" id="sldK" min="0" max="3" step="0.05" value="1"
+         style="width:100%;margin:2px 0">
+  <p style="margin-top:2px;font-size:10px;color:#555">fractional blend (experimental)</p>
 
   <label style="margin-top:10px">η <span id="etaVal">auto</span>
     <input type="range" id="sldEta" min="0" max="40" step="0.5" value="0"
@@ -55,8 +61,9 @@
 <canvas id="c"></canvas>
 
 <script type="module">
-import { sampleGLK }         from './glk-curve.mjs';
-import { sampleModifiedGLK } from './glk-modified.mjs';
+import { sampleGLK }             from './glk-curve.mjs';
+import { sampleModifiedGLK }     from './glk-modified.mjs';
+import { sampleGLKFractional }   from './glk-fractional.mjs';
 
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
@@ -124,7 +131,9 @@ function draw() {
     ctx.fillText('Click to add control points', 20, 40);
   }
 
-  const N   = 300;
+  const N    = 300;
+  const kFrac = parseFloat(document.getElementById('sldK').value);
+  document.getElementById('kVal').textContent = kFrac.toFixed(2);
   const raw = parseFloat(document.getElementById('sldEta').value);
   const eta = raw === 0 ? null : raw;   // 0 → paper default (null = 1/ω₀)
   document.getElementById('etaVal').textContent = eta === null ? 'auto' : raw.toFixed(1);
@@ -142,6 +151,11 @@ function draw() {
         drawCurve(sampleGLK(pts, 1, N), '#7bf');
       if (document.getElementById('chk2').checked && pts.length >= 3)
         drawCurve(sampleGLK(pts, 2, N), '#8f8');
+      if (document.getElementById('chkFrac').checked && pts.length >= 2) {
+        ctx.setLineDash([8, 3]);
+        drawCurve(sampleGLKFractional(pts, kFrac, N), '#fff', 1.5);
+        ctx.setLineDash([]);
+      }
       if (document.getElementById('chkM0').checked && pts.length >= 4)
         drawCurve(sampleModifiedGLK(pts, 0, N, eta, eta), '#f5c', 2);
       if (document.getElementById('chkM1').checked && pts.length >= 4)
@@ -265,6 +279,7 @@ document.getElementById('btnPaste').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('sldK').addEventListener('input', draw);
 document.getElementById('sldEta').addEventListener('input', draw);
 document.querySelectorAll('input[type=checkbox]').forEach(el =>
   el.addEventListener('change', draw));
