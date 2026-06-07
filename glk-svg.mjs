@@ -123,17 +123,27 @@ export function buildSVG(segments, opts = {}) {
     M = 8,
   } = opts;
 
-  const lines = [
-    `<svg xmlns="http://www.w3.org/2000/svg"`,
-    `     width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"`,
-    `     style="background:#1a1a1a">`,
-  ];
+  // Format parameter values for <title> text
+  const etaStr   = eta   === null ? 'auto' : eta.toFixed(2);
+  const alphaStr = alpha.toFixed(2);
+  const kStr     = kFrac.toFixed(2);
+
+  // Collect path elements per named group.
+  // Each group: { id, title, paths: string[] }
+  const groups = [];
+
+  // Helper: create or reuse a group bucket
+  function getGroup(id, title) {
+    let g = groups.find(g => g.id === id);
+    if (!g) { g = { id, title, paths: [] }; groups.push(g); }
+    return g;
+  }
 
   for (const pts of segments) {
     if (pts.length < 2) continue;
     const n = pts.length - 1;
 
-    // Resolve eta once per segment (depends on n)
+    // Resolve eta (depends on n via glWeights)
     let e1 = eta, e2 = eta;
     if (e1 === null || e2 === null) {
       const w0 = glWeights(n)[0];
@@ -141,45 +151,71 @@ export function buildSVG(segments, opts = {}) {
       if (e2 === null) e2 = 1 / w0;
     }
 
-    // Control polygon
-    if (showPoly) {
-      const ptStr = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-      lines.push(`  <polyline points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`);
-    }
-
-    // Helper: matrix → path element
-    const pathEl = (L, stroke, sw, dashArray = null) => {
+    // Helper: matrix → path string
+    const pathStr = (L, stroke, sw, dashArray = null) => {
       const coeffs = applyMatrix(L, pts);
       const d = coeffsToSVGPath(coeffs, M);
       const da = dashArray ? ` stroke-dasharray="${dashArray}"` : '';
-      return `  <path d="${d}" stroke="${stroke}" fill="none" stroke-width="${sw}"${da}/>`;
+      return `    <path d="${d}" stroke="${stroke}" fill="none" stroke-width="${sw}"${da}/>`;
     };
 
-    if (showGL0)           lines.push(pathEl(buildGLKMatrix(n, 0), '#f97', 2));
-    if (showGL1)           lines.push(pathEl(buildGLKMatrix(n, 1), '#7bf', 2));
-    if (showGL2 && n >= 2) lines.push(pathEl(buildGLKMatrix(n, 2), '#8f8', 2));
+    if (showPoly) {
+      const ptStr = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+      getGroup('polygon', 'Control polygon')
+        .paths.push(`    <polyline points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`);
+    }
+
+    if (showGL0)
+      getGroup('gl-0', 'GL-0')
+        .paths.push(pathStr(buildGLKMatrix(n, 0), '#f97', 2));
+    if (showGL1)
+      getGroup('gl-1', 'GL-1')
+        .paths.push(pathStr(buildGLKMatrix(n, 1), '#7bf', 2));
+    if (showGL2 && n >= 2)
+      getGroup('gl-2', 'GL-2')
+        .paths.push(pathStr(buildGLKMatrix(n, 2), '#8f8', 2));
 
     if (n >= 3) {
-      if (showM0) lines.push(pathEl(buildModifiedGLKMatrix(n, 0, e1, e2, alpha), '#f5c', 2));
-      if (showM1) lines.push(pathEl(buildModifiedGLKMatrix(n, 1, e1, e2, alpha), '#fc6', 2.5));
+      if (showM0)
+        getGroup('mod-gl-0', `mod GL-0  η=${etaStr}  α=${alphaStr}`)
+          .paths.push(pathStr(buildModifiedGLKMatrix(n, 0, e1, e2, alpha), '#f5c', 2));
+      if (showM1)
+        getGroup('mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`)
+          .paths.push(pathStr(buildModifiedGLKMatrix(n, 1, e1, e2, alpha), '#fc6', 2.5));
     }
 
     if (showFrac) {
-      const Lf   = buildGLKMatrixFractional(n, kFrac);
-      const Luse = (showFracMod && n >= 3)
-        ? applyTangentOperator(n, Lf, e1, e2, alpha)
-        : Lf;
-      lines.push(pathEl(Luse, '#fff', 1.5, '8 3'));
+      const Lf     = buildGLKMatrixFractional(n, kFrac);
+      const isMod  = showFracMod && n >= 3;
+      const Luse   = isMod ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
+      const title  = isMod
+        ? `GL-k (fractional, mod)  k=${kStr}  η=${etaStr}  α=${alphaStr}`
+        : `GL-k (fractional)  k=${kStr}`;
+      getGroup(`frac-k${kStr}`, title)
+        .paths.push(pathStr(Luse, '#fff', 1.5, '8 3'));
     }
   }
 
-  // Control points on top
-  for (const pts of segments) {
-    for (const [x, y] of pts) {
-      lines.push(`  <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#666"/>`);
-    }
-  }
+  // Control points (collected across all segments into one group)
+  const cpPaths = [];
+  for (const pts of segments)
+    for (const [x, y] of pts)
+      cpPaths.push(`    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#666"/>`);
+  if (cpPaths.length)
+    getGroup('control-points', 'Control points').paths.push(...cpPaths);
 
+  // Render
+  const lines = [
+    `<svg xmlns="http://www.w3.org/2000/svg"`,
+    `     width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"`,
+    `     style="background:#1a1a1a">`,
+  ];
+  for (const { id, title, paths } of groups) {
+    lines.push(`  <g id="${id}">`);
+    lines.push(`    <title>${title}</title>`);
+    lines.push(...paths);
+    lines.push(`  </g>`);
+  }
   lines.push('</svg>');
   return lines.join('\n');
 }
