@@ -19,6 +19,8 @@
  */
 
 import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
+import { applyTangentOperator }        from './glk-modified.mjs';
+import { glWeights }                   from './legendre.mjs';
 import { gleveal }                     from './gleval.mjs';
 
 /**
@@ -47,6 +49,32 @@ export function sampleGLKFractional(pts, k = 1, nSamples = 200) {
   const n      = pts.length - 1;
   const L      = buildGLKMatrixFractional(n, k);
   const coeffs = applyMatrix(L, pts);
+  const out    = [];
+  for (let i = 0; i < nSamples; i++) {
+    const t = -1 + 2 * i / (nSamples - 1);
+    out.push(gleveal(coeffs, t));
+  }
+  return out;
+}
+
+/**
+ * Sample the modified (tangent-corrected) fractional GL-k curve.
+ * Applies the same tangent operator as mod GL-k, but on top of the
+ * fractionally-blended base matrix.  Requires n ≥ 3.
+ */
+export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null) {
+  const n = pts.length - 1;
+  if (n < 3) return sampleGLKFractional(pts, k, nSamples);  // fallback: no tangent correction
+
+  if (eta1 === null || eta2 === null) {
+    const w0 = glWeights(n)[0];
+    if (eta1 === null) eta1 = 1 / w0;
+    if (eta2 === null) eta2 = 1 / w0;
+  }
+
+  const L      = buildGLKMatrixFractional(n, k);
+  const Ltilde = applyTangentOperator(n, L, eta1, eta2);
+  const coeffs = applyMatrix(Ltilde, pts);
   const out    = [];
   for (let i = 0; i < nSamples; i++) {
     const t = -1 + 2 * i / (nSamples - 1);

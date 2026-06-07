@@ -113,31 +113,19 @@ function mul4xN(A4, B, n) {
 // ---------------------------------------------------------------------------
 
 /**
- * Build L̃_k — the modified GL-k transform matrix (n+1)×(n+1).
+ * Apply the tangent operator T to an arbitrary (n+1)×(n+1) matrix L,
+ * returning L̃ = L + W^{-1} D^T (D W^{-1} D^T)^{-1} (E − D L).
  *
- * eta1, eta2: tangent scaling at t=-1 and t=1.
- *   Default (null): 1/w_0 where w_0 is the first GL quadrature weight —
- *                   this matches the GL-0 derivative magnitude at τ_0 (paper default).
+ * This is the core correction step, factored out so it can be applied to
+ * any base matrix (integer GL-k, fractional blend, etc.).
+ *
+ * Requires n ≥ 3 (caller is responsible for checking).
  */
-export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null) {
-  // For n < 3: D is 4×(n+1) with n+1 < 4, so M = D W^{-1} D^T is rank-deficient.
-  // (4 constraints, fewer than 4 unknowns → over-determined; formula requires n ≥ 3.)
-  // Fall back to unmodified GL-k — tangent property trivially holds for straight lines
-  // and is not well-defined for 3 points without a pseudoinverse.
-  if (n < 3) return buildGLKMatrix(n, k);
-
-  // Paper default: η = 1/ω₀  (first GL quadrature weight at the leftmost node)
-  if (eta1 === null || eta2 === null) {
-    const w0 = glWeights(n)[0];
-    if (eta1 === null) eta1 = 1 / w0;
-    if (eta2 === null) eta2 = 1 / w0;
-  }
-
-  const Lk   = buildGLKMatrix(n, k);
+export function applyTangentOperator(n, Lk, eta1, eta2) {
   const D    = buildD(n);
   const E    = buildE(n, eta1, eta2);
   const M    = buildM(D, n);
-  const Minv = invert4(M.map(r => [...r]));  // copy before invert
+  const Minv = invert4(M.map(r => [...r]));
 
   // B = E - D Lk  (4×(n+1))
   const B = Array.from({ length: 4 }, (_, r) => {
@@ -152,8 +140,8 @@ export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null) {
   // C = Minv · B  (4×(n+1))
   const C = mul4xN(Minv, B, n);
 
-  // correction[j][i] = (2j+1)/2 * Σ_r D[r][j] * C[r][i]
-  const Ltilde = Lk.map((lkRow, j) => {
+  // L̃[j][i] = Lk[j][i] + (2j+1)/2 * Σ_r D[r][j] * C[r][i]
+  return Lk.map((lkRow, j) => {
     const row = new Float64Array(n + 1);
     const wj  = (2 * j + 1) / 2;
     for (let i = 0; i <= n; i++) {
@@ -163,8 +151,33 @@ export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null) {
     }
     return row;
   });
+}
 
-  return Ltilde;
+/**
+ * Resolve eta defaults (null → 1/ω₀) and return [eta1, eta2].
+ */
+function resolveEta(n, eta1, eta2) {
+  if (eta1 === null || eta2 === null) {
+    const w0 = glWeights(n)[0];
+    if (eta1 === null) eta1 = 1 / w0;
+    if (eta2 === null) eta2 = 1 / w0;
+  }
+  return [eta1, eta2];
+}
+
+/**
+ * Build L̃_k — the modified GL-k transform matrix (n+1)×(n+1).
+ *
+ * eta1, eta2: tangent scaling at t=-1 and t=1.
+ *   Default (null): 1/w_0 where w_0 is the first GL quadrature weight —
+ *                   this matches the GL-0 derivative magnitude at τ_0 (paper default).
+ */
+export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null) {
+  // For n < 3: D is 4×(n+1) with n+1 < 4, so M = D W^{-1} D^T is rank-deficient.
+  // Fall back to unmodified GL-k.
+  if (n < 3) return buildGLKMatrix(n, k);
+  [eta1, eta2] = resolveEta(n, eta1, eta2);
+  return applyTangentOperator(n, buildGLKMatrix(n, k), eta1, eta2);
 }
 
 /**
