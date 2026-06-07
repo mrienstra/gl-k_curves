@@ -62,6 +62,7 @@
   <button id="btnReset">Reset to example</button>
   <button id="btnCopy">Copy JSON</button>
   <button id="btnPaste">Paste JSON</button>
+  <button id="btnSVG">Export SVG</button>
 
   <p><a href="basis.html" style="color:#7bf">basis functions →</a></p>
 </div>
@@ -71,6 +72,7 @@
 import { sampleGLK }             from './glk-curve.mjs';
 import { sampleModifiedGLK }     from './glk-modified.mjs';
 import { sampleGLKFractional, sampleModifiedGLKFractional } from './glk-fractional.mjs';
+import { buildSVG }              from './glk-svg.mjs';
 
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
@@ -289,6 +291,31 @@ document.getElementById('btnPaste').addEventListener('click', async () => {
   } catch {
     alert('Invalid JSON — expected [[x,y],...], [[[x,y],...],...], or {"segments":[...],"eta":n}');
   }
+});
+
+document.getElementById('btnSVG').addEventListener('click', () => {
+  const rawEta = parseFloat(document.getElementById('sldEta').value);
+  const svg = buildSVG(segments, {
+    width:       canvas.width,
+    height:      canvas.height,
+    showGL0:     document.getElementById('chk0').checked,
+    showGL1:     document.getElementById('chk1').checked,
+    showGL2:     document.getElementById('chk2').checked,
+    showM0:      document.getElementById('chkM0').checked,
+    showM1:      document.getElementById('chkM1').checked,
+    showFrac:    document.getElementById('chkFrac').checked,
+    showFracMod: document.getElementById('chkFracMod').checked,
+    showPoly:    document.getElementById('chkPoly').checked,
+    kFrac:       parseFloat(document.getElementById('sldK').value),
+    eta:         rawEta === 0 ? null : rawEta,
+    alpha:       parseFloat(document.getElementById('sldAlpha').value),
+  });
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'gl-k-curves.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
 });
 
 document.getElementById('sldK').addEventListener('input', draw);
