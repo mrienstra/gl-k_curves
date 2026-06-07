@@ -94,12 +94,13 @@ def merge_points(points, merge_dist):
 
 def detect_dot_centers(mask, min_radius=2.0, peak_window=9, merge_dist=8.0):
     dist = cv2.distanceTransform(mask, cv2.DIST_L2, 5)
-    peak_window = ensure_odd(peak_window)
 
-    local_max = dist == ndi.maximum_filter(dist, size=peak_window, mode="nearest")
-    peaks = local_max & (dist >= min_radius) & (mask > 0)
-
-    labels, count = ndi.label(peaks)
+    # Threshold the distance transform: pixels with dist >= min_radius belong to
+    # regions that are "thick enough" to be dots rather than connecting lines.
+    # Each connected blob in this thresholded map should correspond to one dot.
+    # (peak_window is kept as an argument for CLI compatibility but not used.)
+    thick = (dist >= min_radius) & (mask > 0)
+    labels, count = ndi.label(thick)
     points = []
 
     for label in range(1, count + 1):
