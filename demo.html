@@ -25,12 +25,14 @@
   <label><input type="checkbox" id="chk0" checked> GL-0</label>
   <label><input type="checkbox" id="chk1" checked> GL-1</label>
   <label><input type="checkbox" id="chk2" checked> GL-2</label>
+  <label><input type="checkbox" id="chkM0"> mod GL-0</label>
   <label><input type="checkbox" id="chkM1" checked> mod GL-1</label>
   <label><input type="checkbox" id="chkPoly" checked> polygon</label>
 
   <div class="legend"><span class="swatch" style="background:#f97"></span> GL-0</div>
   <div class="legend"><span class="swatch" style="background:#7bf"></span> GL-1</div>
   <div class="legend"><span class="swatch" style="background:#8f8"></span> GL-2</div>
+  <div class="legend"><span class="swatch" style="background:#f5c;height:2px"></span> mod GL-0</div>
   <div class="legend"><span class="swatch" style="background:#fc6;height:2px"></span> mod GL-1</div>
   <div class="legend"><span class="swatch" style="background:#555;height:1px"></span> polygon</div>
 
@@ -140,6 +142,8 @@ function draw() {
         drawCurve(sampleGLK(pts, 1, N), '#7bf');
       if (document.getElementById('chk2').checked && pts.length >= 3)
         drawCurve(sampleGLK(pts, 2, N), '#8f8');
+      if (document.getElementById('chkM0').checked && pts.length >= 4)
+        drawCurve(sampleModifiedGLK(pts, 0, N, eta, eta), '#f5c', 2);
       if (document.getElementById('chkM1').checked && pts.length >= 4)
         drawCurve(sampleModifiedGLK(pts, 1, N, eta, eta), '#fc6', 2.5);
     } catch (e) {
