@@ -144,9 +144,9 @@ function draw() {
     }
   }
 
-  for (let s = 0; s < segments.length; s++) {
-    drawPoints(segments[s], s === activeSeg);
-  }
+  if (document.getElementById('chkPoly').checked)
+    for (let s = 0; s < segments.length; s++)
+      drawPoints(segments[s], s === activeSeg);
 
   document.getElementById('segInfo').textContent =
     `Seg ${activeSeg + 1} / ${segments.length}`;

@@ -200,12 +200,14 @@ export function buildSVG(segments, opts = {}) {
   }
 
   // Control points (collected across all segments into one group)
-  const cpPaths = [];
-  for (const pts of segments)
-    for (const [x, y] of pts)
-      cpPaths.push(`    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#666"/>`);
-  if (cpPaths.length)
-    getGroup('control-points', 'Control points').paths.push(...cpPaths);
+  if (showPoly) {
+    const cpPaths = [];
+    for (const pts of segments)
+      for (const [x, y] of pts)
+        cpPaths.push(`    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#666"/>`);
+    if (cpPaths.length)
+      getGroup('control-points', 'Control points').paths.push(...cpPaths);
+  }
 
   // Render
   const lines = [
