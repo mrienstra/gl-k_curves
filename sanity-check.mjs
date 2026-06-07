@@ -4,7 +4,7 @@
  * All results below are analytically verifiable by hand.
  */
 
-import { legendreP, legendreAndDeriv, glNodes } from './legendre.mjs';
+import { legendreP, legendreAndDeriv, glNodes, glWeights } from './legendre.mjs';
 import { gleveal } from './gleval.mjs';
 import { applyAveraging } from './gl-averaging.mjs';
 import { gl0LegendreCoeffs } from './gl0-legendre.mjs';
@@ -70,6 +70,39 @@ for (let n = 1; n <= 6; n++) {
   nodes.forEach((t, i) => {
     check(`P_${n}(τ_${i}) ≈ 0  (n=${n})`, legendreP(n, t), 0, 1e-12);
   });
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n── GL weights ──');
+
+// Exact known values
+// n=2: nodes ±1/√3, weights both = 1
+{
+  const w = glWeights(2);
+  check('glWeights(2)[0] = 1', w[0], 1);
+  check('glWeights(2)[1] = 1', w[1], 1);
+}
+
+// n=3: nodes ±√(3/5), 0; weights 5/9, 8/9, 5/9
+{
+  const w = glWeights(3);
+  check('glWeights(3)[0] = 5/9', w[0], 5/9);
+  check('glWeights(3)[1] = 8/9', w[1], 8/9);
+  check('glWeights(3)[2] = 5/9', w[2], 5/9);
+}
+
+// Weights sum to 2 (∫_{-1}^{1} 1 dt = 2) for n = 1..6
+for (let n = 1; n <= 6; n++) {
+  const sum = glWeights(n).reduce((a, b) => a + b, 0);
+  check(`Σ glWeights(${n}) = 2`, sum, 2, 1e-12);
+}
+
+// Symmetry: w_i = w_{n-1-i}
+for (let n = 2; n <= 5; n++) {
+  const w = glWeights(n);
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    check(`glWeights(${n}) symmetric: w[${i}]=w[${n-1-i}]`, w[i], w[n - 1 - i], 1e-14);
+  }
 }
 
 // ---------------------------------------------------------------------------
