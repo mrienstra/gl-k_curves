@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GL-k basis functions</title>
+<style>
+  body { margin: 0; background: #1a1a1a; color: #ddd; font: 14px/1.5 monospace; display: flex; }
+  #sidebar { width: 200px; padding: 16px; flex-shrink: 0; }
+  canvas { display: block; }
+  label { display: block; margin: 8px 0 2px; }
+  select { background: #2a2a2a; color: #ddd; border: 1px solid #555; padding: 2px 4px; width: 100%; }
+  p { font-size: 11px; color: #888; margin: 10px 0 0; }
+  #minVal { color: #f97; font-size: 12px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <b>GL-k basis C<sub>i</sub><sup>k</sup></b>
+
+  <label>n (degree)
+    <select id="selN">
+      <option value="3" selected>3</option>
+      <option value="5">5</option>
+      <option value="10">10</option>
+      <option value="15">15</option>
+    </select>
+  </label>
+
+  <label>k (averaging)
+    <select id="selK">
+      <option value="0">0</option>
+      <option value="1" selected>1</option>
+      <option value="2">2</option>
+    </select>
+  </label>
+
+  <p>n+1 basis functions, one per control point.<br>
+     They form a <b>partition of unity</b> (sum = 1, dashed line).<br>
+     They are <b>not</b> non-negative — the minimum is shown below.</p>
+
+  <div id="minVal"></div>
+
+  <p style="margin-top:20px"><a href="demo.html" style="color:#7bf">← back to demo</a></p>
+</div>
+<canvas id="c"></canvas>
+
+<script type="module">
+import { buildGLKMatrix } from './glk-matrix.mjs';
+import { gleveal }        from './gleval.mjs';
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+// ── sizing ──────────────────────────────────────────────────────────────────
+function resize() {
+  canvas.width  = window.innerWidth - 200;
+  canvas.height = window.innerHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// ── compute basis functions ─────────────────────────────────────────────────
+function computeBasis(n, k, nSamples = 600) {
+  const L  = buildGLKMatrix(n, k);
+  const ts = Array.from({ length: nSamples }, (_, idx) => -1 + 2 * idx / (nSamples - 1));
+
+  return ts.map(t => {
+    // evaluate all n+1 basis functions at t
+    return Array.from({ length: n + 1 }, (_, i) => {
+      const col = Array.from({ length: n + 1 }, (__, j) => L[j][i]);
+      return gleveal(col, t);
+    });
+  });
+  // returns nSamples × (n+1) table
+}
+
+// ── color per basis index ───────────────────────────────────────────────────
+function basisColor(i, n) {
+  const hue = Math.round(360 * i / (n + 1));
+  return `hsl(${hue}, 75%, 62%)`;
+}
+
+// ── draw ────────────────────────────────────────────────────────────────────
+function draw() {
+  const n = parseInt(document.getElementById('selN').value);
+  const k = parseInt(document.getElementById('selK').value);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const ML = 50, MR = 20, MT = 30, MB = 40;
+  const W = canvas.width  - ML - MR;
+  const H = canvas.height - MT - MB;
+
+  // Fixed y range: show [-0.2, 1.15] to accommodate negatives + top margin
+  const yLo = -0.22, yHi = 1.15;
+
+  function tx(t)   { return ML + (t + 1) / 2 * W; }
+  function ty(val) { return MT + (1 - (val - yLo) / (yHi - yLo)) * H; }
+
+  // ── grid & axes ──────────────────────────────────────────────────────────
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth   = 1;
+
+  // Horizontal grid lines at y = -0.1, 0, 0.25, 0.5, 0.75, 1.0
+  for (const v of [-0.1, 0, 0.25, 0.5, 0.75, 1.0]) {
+    const yc = ty(v);
+    ctx.beginPath();
+    ctx.moveTo(ML, yc);
+    ctx.lineTo(ML + W, yc);
+    if (v === 0 || v === 1.0) {
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth   = 1.5;
+    } else {
+      ctx.strokeStyle = '#2e2e2e';
+      ctx.lineWidth   = 1;
+    }
+    ctx.stroke();
+  }
+
+  // Partition of unity line (y = 1), dashed
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(ML, ty(1));
+  ctx.lineTo(ML + W, ty(1));
+  ctx.stroke();
+  ctx.restore();
+
+  // Vertical axis ticks at t = -1, -0.5, 0, 0.5, 1
+  ctx.fillStyle  = '#666';
+  ctx.font       = '11px monospace';
+  ctx.textAlign  = 'center';
+  for (const tv of [-1, -0.5, 0, 0.5, 1]) {
+    const xc = tx(tv);
+    ctx.beginPath();
+    ctx.moveTo(xc, MT + H);
+    ctx.lineTo(xc, MT + H + 4);
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
+    ctx.fillText(tv.toFixed(1), xc, MT + H + 16);
+  }
+
+  // y-axis labels
+  ctx.textAlign = 'right';
+  for (const v of [0, 0.5, 1.0]) {
+    ctx.fillText(v.toFixed(1), ML - 6, ty(v) + 4);
+  }
+
+  // Axis label
+  ctx.textAlign  = 'center';
+  ctx.fillStyle  = '#555';
+  ctx.fillText('t', ML + W / 2, MT + H + 32);
+
+  // Title
+  ctx.fillStyle = '#aaa';
+  ctx.font      = '13px monospace';
+  ctx.fillText(`C_i^${k}(t),  n = ${n}`, ML + W / 2, MT - 10);
+
+  // ── basis curves ─────────────────────────────────────────────────────────
+  const table = computeBasis(n, k);
+  const nSamples = table.length;
+  let globalMin = Infinity;
+
+  for (let i = 0; i <= n; i++) {
+    ctx.beginPath();
+    for (let s = 0; s < nSamples; s++) {
+      const val = table[s][i];
+      if (val < globalMin) globalMin = val;
+      const xc = tx(-1 + 2 * s / (nSamples - 1));
+      const yc = ty(val);
+      s === 0 ? ctx.moveTo(xc, yc) : ctx.lineTo(xc, yc);
+    }
+    ctx.strokeStyle = basisColor(i, n);
+    ctx.lineWidth   = 1.8;
+    ctx.stroke();
+  }
+
+  // ── min value label ──────────────────────────────────────────────────────
+  document.getElementById('minVal').textContent =
+    `min C_i^${k} ≈ ${globalMin.toFixed(4)}`;
+}
+
+// ── controls ────────────────────────────────────────────────────────────────
+document.getElementById('selN').addEventListener('change', draw);
+document.getElementById('selK').addEventListener('change', draw);
+
+resize();
+</script>
+</body>
+</html>
