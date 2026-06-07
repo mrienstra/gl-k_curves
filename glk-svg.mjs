@@ -73,8 +73,8 @@ export function coeffsToSVGPath(coeffs, M = 8) {
 
   let d = '';
   for (let m = 0; m < M; m++) {
-    const a = -1 + 2 * m / M;
-    const b = -1 + 2 * (m + 1) / M;
+    const a = -Math.cos(Math.PI * m / M);
+    const b = -Math.cos(Math.PI * (m + 1) / M);
     const h = b - a;
 
     const p0  = gleveal(coeffs, a);
@@ -151,10 +151,13 @@ export function buildSVG(segments, opts = {}) {
       if (e2 === null) e2 = 1 / w0;
     }
 
+    // Scale Hermite segments with polynomial degree so endpoint accuracy holds.
+    const segM = Math.max(M, n);
+
     // Helper: matrix → path string
     const pathStr = (L, stroke, sw, dashArray = null) => {
       const coeffs = applyMatrix(L, pts);
-      const d = coeffsToSVGPath(coeffs, M);
+      const d = coeffsToSVGPath(coeffs, segM);
       const da = dashArray ? ` stroke-dasharray="${dashArray}"` : '';
       return `    <path d="${d}" stroke="${stroke}" fill="none" stroke-width="${sw}"${da}/>`;
     };
