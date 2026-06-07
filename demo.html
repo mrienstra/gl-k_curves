@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GL-k curves demo</title>
+<style>
+  body { margin: 0; background: #1a1a1a; color: #ddd; font: 14px/1.5 monospace; display: flex; }
+  #sidebar { width: 200px; padding: 16px; flex-shrink: 0; }
+  canvas { cursor: crosshair; display: block; }
+  label { display: block; margin: 6px 0 2px; }
+  .legend { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
+  .swatch { width: 24px; height: 3px; display: inline-block; }
+  button { margin-top: 10px; padding: 4px 10px; background: #333; color: #ddd;
+           border: 1px solid #555; cursor: pointer; width: 100%; }
+  button:hover { background: #444; }
+  p { font-size: 11px; color: #888; margin: 12px 0 0; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <b>GL-k curves</b>
+  <p>Click canvas to add points.<br>Drag to move.</p>
+
+  <label><input type="checkbox" id="chk0" checked> GL-0</label>
+  <label><input type="checkbox" id="chk1" checked> GL-1</label>
+  <label><input type="checkbox" id="chk2" checked> GL-2</label>
+  <label><input type="checkbox" id="chkPoly" checked> polygon</label>
+
+  <div class="legend"><span class="swatch" style="background:#f97"></span> GL-0</div>
+  <div class="legend"><span class="swatch" style="background:#7bf"></span> GL-1</div>
+  <div class="legend"><span class="swatch" style="background:#8f8"></span> GL-2</div>
+  <div class="legend"><span class="swatch" style="background:#555;height:1px"></span> polygon</div>
+
+  <button id="btnClear">Clear</button>
+  <button id="btnReset">Reset to example</button>
+</div>
+<canvas id="c"></canvas>
+
+<script type="module">
+import { sampleGLK } from './glk-curve.mjs';
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+// ── state ──────────────────────────────────────────────────────────────────
+let pts = [
+  [120, 350], [200, 100], [320, 280], [440, 80], [560, 300], [660, 140],
+];
+let drag = null;   // index of dragged point, or null
+
+// ── sizing ─────────────────────────────────────────────────────────────────
+function resize() {
+  canvas.width  = window.innerWidth - 200;
+  canvas.height = window.innerHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// ── drawing ────────────────────────────────────────────────────────────────
+function canvasToParam(pt) { return pt; }   // canvas coords = control point coords
+
+function drawCurve(samples, color, width = 2) {
+  if (samples.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(samples[0][0], samples[0][1]);
+  for (let i = 1; i < samples.length; i++) ctx.lineTo(samples[i][0], samples[i][1]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = width;
+  ctx.stroke();
+}
+
+function drawPolygon() {
+  if (pts.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawPoints() {
+  for (let i = 0; i < pts.length; i++) {
+    ctx.beginPath();
+    ctx.arc(pts[i][0], pts[i][1], 6, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 || i === pts.length - 1 ? '#fa6' : '#aaa';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (pts.length < 2) {
+    ctx.fillStyle = '#555';
+    ctx.fillText('Click to add control points', 20, 40);
+    return;
+  }
+
+  if (document.getElementById('chkPoly').checked) drawPolygon();
+
+  const N = 300;
+  try {
+    if (document.getElementById('chk0').checked)
+      drawCurve(sampleGLK(pts, 0, N), '#f97');
+    if (document.getElementById('chk1').checked && pts.length >= 2)
+      drawCurve(sampleGLK(pts, 1, N), '#7bf');
+    if (document.getElementById('chk2').checked && pts.length >= 3)
+      drawCurve(sampleGLK(pts, 2, N), '#8f8');
+  } catch (e) {
+    ctx.fillStyle = '#f66';
+    ctx.fillText(e.message, 10, 20);
+  }
+
+  drawPoints();
+}
+
+// ── interaction ────────────────────────────────────────────────────────────
+function nearestPoint(x, y, radius = 12) {
+  let best = -1, bestD = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const d = Math.hypot(pts[i][0] - x, pts[i][1] - y);
+    if (d < radius && d < bestD) { best = i; bestD = d; }
+  }
+  return best;
+}
+
+canvas.addEventListener('mousedown', e => {
+  const x = e.offsetX, y = e.offsetY;
+  const hit = nearestPoint(x, y);
+  if (hit >= 0) { drag = hit; return; }
+  pts.push([x, y]);
+  draw();
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (drag === null) return;
+  pts[drag] = [e.offsetX, e.offsetY];
+  draw();
+});
+
+canvas.addEventListener('mouseup', () => { drag = null; });
+
+canvas.addEventListener('dblclick', e => {
+  const hit = nearestPoint(e.offsetX, e.offsetY);
+  if (hit >= 0) { pts.splice(hit, 1); draw(); }
+});
+
+document.getElementById('btnClear').addEventListener('click', () => { pts = []; draw(); });
+document.getElementById('btnReset').addEventListener('click', () => {
+  pts = [
+    [120, 350], [200, 100], [320, 280], [440, 80], [560, 300], [660, 140],
+  ];
+  draw();
+});
+document.querySelectorAll('input[type=checkbox]').forEach(el =>
+  el.addEventListener('change', draw));
+
+resize();
+</script>
+</body>
+</html>
