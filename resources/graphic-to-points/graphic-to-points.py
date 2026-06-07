@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import csv
 import math
 from pathlib import Path
@@ -390,6 +391,39 @@ def write_overlay(path, original, mask, points, edges):
     cv2.imwrite(str(path), overlay)
 
 
+def write_overlay_svg(path, img_path, width, height, points, edges):
+    suffix = Path(img_path).suffix.lower()
+    mime = "image/jpeg" if suffix in (".jpg", ".jpeg") else "image/png"
+    b64 = base64.b64encode(Path(img_path).read_bytes()).decode("ascii")
+
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}">',
+        f'<image href="data:{mime};base64,{b64}" x="0" y="0" width="{width}" height="{height}"/>',
+    ]
+
+    for a, b in edges:
+        x1, y1 = points[a][:2]
+        x2, y2 = points[b][:2]
+        lines.append(
+            f'<line x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}"'
+            ' stroke="#111" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>'
+        )
+
+    for idx, (x, y, score) in enumerate(points, start=1):
+        lines.append(
+            f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5"'
+            ' fill="none" stroke="#d22" stroke-width="1.5"/>'
+        )
+        lines.append(
+            f'<text x="{x + 7:.2f}" y="{y - 7:.2f}"'
+            ' font-family="sans-serif" font-size="11" fill="#d22"'
+            f' paint-order="stroke" stroke="white" stroke-width="2.5">{idx}</text>'
+        )
+
+    lines.append("</svg>")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def main():
     args = parse_args()
 
@@ -428,18 +462,21 @@ def main():
     csv_path = outdir / "points.csv"
     svg_path = outdir / "points.svg"
     overlay_path = outdir / "overlay.png"
+    overlay_svg_path = outdir / "overlay.svg"
     mask_path = outdir / "mask.png"
 
     write_csv(csv_path, points)
     write_svg(svg_path, img.shape[1], img.shape[0], points, polylines)
     write_overlay(overlay_path, img, mask, points, edges)
+    write_overlay_svg(overlay_svg_path, inp, img.shape[1], img.shape[0], points, edges)
     cv2.imwrite(str(mask_path), mask)
 
     print(f"Detected {len(points)} points")
-    print(f"CSV:     {csv_path}")
-    print(f"SVG:     {svg_path}")
-    print(f"Overlay: {overlay_path}")
-    print(f"Mask:    {mask_path}")
+    print(f"CSV:          {csv_path}")
+    print(f"SVG:          {svg_path}")
+    print(f"Overlay PNG:  {overlay_path}")
+    print(f"Overlay SVG:  {overlay_svg_path}")
+    print(f"Mask:         {mask_path}")
 
 
 if __name__ == "__main__":
