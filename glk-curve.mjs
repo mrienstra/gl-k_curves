@@ -29,7 +29,7 @@ export function sampleGLK(pts, k = 1, nSamples = 200) {
   const coeffs = glkCoeffs(pts, k);
   const out = [];
   for (let i = 0; i < nSamples; i++) {
-    const t = -1 + 2 * i / (nSamples - 1);
+    const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));
   }
   return out;

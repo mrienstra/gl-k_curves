@@ -51,7 +51,7 @@ export function sampleGLKFractional(pts, k = 1, nSamples = 200) {
   const coeffs = applyMatrix(L, pts);
   const out    = [];
   for (let i = 0; i < nSamples; i++) {
-    const t = -1 + 2 * i / (nSamples - 1);
+    const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));
   }
   return out;
@@ -79,7 +79,7 @@ export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = n
   const coeffs = applyMatrix(Ltilde, pts);
   const out    = [];
   for (let i = 0; i < nSamples; i++) {
-    const t = -1 + 2 * i / (nSamples - 1);
+    const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));
   }
   return out;

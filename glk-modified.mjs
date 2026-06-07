@@ -192,7 +192,7 @@ export function sampleModifiedGLK(pts, k = 1, nSamples = 200, eta1 = null, eta2 
   const coeffs = applyMatrix(Ltilde, pts);
   const out    = [];
   for (let i = 0; i < nSamples; i++) {
-    const t = -1 + 2 * i / (nSamples - 1);
+    const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));
   }
   return out;
