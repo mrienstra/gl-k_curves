@@ -2,6 +2,7 @@ import { sampleGLK }             from './glk-curve.mjs';
 import { sampleModifiedGLK }     from './glk-modified.mjs';
 import { sampleGLKFractional, sampleModifiedGLKFractional } from './glk-fractional.mjs';
 import { buildSVG }              from './glk-svg.mjs';
+import { svgFileToSegments }     from './svg-path-import.mjs';
 
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
@@ -256,6 +257,20 @@ document.getElementById('btnPaste').addEventListener('click', async () => {
   } catch {
     alert('Invalid JSON — expected [[x,y],...], [[[x,y],...],...], or {"segments":[...],"eta":n}');
   }
+});
+
+document.getElementById('btnImportSVG').addEventListener('click', () => {
+  document.getElementById('fileSVGImport').click();
+});
+document.getElementById('fileSVGImport').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const segs = svgFileToSegments(await file.text(), {
+    width: canvas.clientWidth, height: canvas.clientHeight,
+  });
+  e.target.value = '';
+  if (!segs) { alert('No supported path found in SVG.'); return; }
+  segments = segs; activeSeg = 0; draw();
 });
 
 document.getElementById('btnSVG').addEventListener('click', () => {
