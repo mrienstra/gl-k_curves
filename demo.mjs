@@ -319,6 +319,14 @@ document.getElementById('btnSplit').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', e => {
+  if ((e.key === 'a' || e.key === 'A') && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    for (let s = 0; s < segments.length; s++)
+      for (let i = 0; i < segments[s].length; i++)
+        addToSel(s, i);
+    draw();
+    return;
+  }
   if (e.key !== 'Delete' && e.key !== 'Backspace') return;
   if (selection.size === 0) return;
   e.preventDefault();
