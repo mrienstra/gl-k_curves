@@ -193,8 +193,9 @@ export function buildSVG(segments, opts = {}) {
     kFrac = 1, eta = null, alpha = 1,
     M = 8,
     styles = {},
-    closedSet    = new Set(), // Set of segment indices (into `segments`) that are closed
-    closedCopies = 3,         // tiling copies for closed-curve extension
+    closedSet     = new Set(), // Set of segment indices (into `segments`) that are closed
+    closedCopies  = 3,         // default tiling copies for closed-curve extension
+    closedOptsMap = null,      // Map<segIndex, {copies, showFull}> — per-segment overrides
   } = opts;
 
   const { color: gl0Color = '#f97',  width: gl0Width = 2,   dash: gl0Dash    = []     } = styles.gl0    ?? {};
@@ -220,16 +221,21 @@ export function buildSVG(segments, opts = {}) {
 
   // Work only with valid segments (≥2 points); track which are closed.
   const validWithMeta = segments
-    .map((s, i) => ({ pts: s, isClosed: closedSet.has(i) }))
+    .map((s, i) => ({
+      pts: s,
+      isClosed: closedSet.has(i),
+      copies: closedOptsMap?.get(i)?.copies ?? closedCopies,
+    }))
     .filter(({ pts }) => pts.length >= 2);
-  const valid       = validWithMeta.map(x => x.pts);
-  const closedFlags = validWithMeta.map(x => x.isClosed);
+  const valid            = validWithMeta.map(x => x.pts);
+  const closedFlags      = validWithMeta.map(x => x.isClosed);
+  const closedCopiesList = validWithMeta.map(x => x.copies);
   const chains = buildChains(valid);
 
   // Helper: emit a closed-curve <path> for one GL-k order.
-  function addClosedPath(pts, k, minTile, segM, groupId, title, stroke, sw, dashStr) {
+  function addClosedPath(pts, k, minTile, segM, groupId, title, stroke, sw, dashStr, copies) {
     if (pts.length - 1 < minTile) return;
-    const d = closedPathD(pts, k, closedCopies, segM);
+    const d = closedPathD(pts, k, copies, segM);
     if (!d) return;
     const da = dashStr ? ` stroke-dasharray="${dashStr}"` : '';
     getGroup(groupId, title).paths.push(
@@ -300,12 +306,13 @@ export function buildSVG(segments, opts = {}) {
     }
 
     if (isSingleClosed) {
-      const pts  = valid[chain[0]];
+      const pts     = valid[chain[0]];
+      const seqCopies = closedCopiesList[chain[0]];
       const { segM } = segInfo(pts);
       const ds = s => s.length ? s.join(' ') : null;
-      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0', 'GL-0', gl0Color, gl0Width, ds(gl0Dash));
-      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1', 'GL-1', gl1Color, gl1Width, ds(gl1Dash));
-      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2', 'GL-2', gl2Color, gl2Width, ds(gl2Dash));
+      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0', 'GL-0', gl0Color, gl0Width, ds(gl0Dash), seqCopies);
+      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1', 'GL-1', gl1Color, gl1Width, ds(gl1Dash), seqCopies);
+      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2', 'GL-2', gl2Color, gl2Width, ds(gl2Dash), seqCopies);
 
       if (showM1) {
         const d = closedPathDWithMatrix(pts, nExt => {
@@ -316,7 +323,7 @@ export function buildSVG(segments, opts = {}) {
             if (e2 === null) e2 = 1 / w0;
           }
           return nExt >= 3 ? buildModifiedGLKMatrix(nExt, 1, e1, e2, alpha) : buildGLKMatrix(nExt, 1);
-        }, closedCopies, segM);
+        }, seqCopies, segM);
         if (d) {
           const da = modGl1Dash.length ? ` stroke-dasharray="${modGl1Dash.join(' ')}"` : '';
           getGroup('mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`).paths.push(
@@ -342,7 +349,7 @@ export function buildSVG(segments, opts = {}) {
             return applyTangentOperator(nExt, Lf, e1, e2, alpha);
           }
           return Lf;
-        }, closedCopies, segM);
+        }, seqCopies, segM);
         if (d) {
           const da = fracDash.length ? ` stroke-dasharray="${fracDash.join(' ')}"` : '';
           getGroup(`frac-k${kStr}`, title).paths.push(

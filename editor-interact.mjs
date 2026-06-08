@@ -13,6 +13,7 @@ import {
   commitSnapshot,
   undo,
   redo,
+  getClosedOpts,
 } from "./editor-state.mjs";
 import { draw } from "./editor-draw.mjs";
 import {
@@ -209,6 +210,9 @@ function bindCanvasEvents(canvas) {
       const newClosed = new Set();
       for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
       state.closed = newClosed;
+      const newClosedOpts = new Map();
+      for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx - 1 : idx, o);
+      state.closedOpts = newClosedOpts;
       state.segments.splice(s, 1);
       state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
     }
@@ -235,6 +239,9 @@ function bindButtonEvents(canvas) {
       const newClosed = new Set();
       for (const idx of state.closed) newClosed.add(idx > s ? idx + 1 : idx);
       state.closed = newClosed;
+      const newClosedOpts = new Map();
+      for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx + 1 : idx, o);
+      state.closedOpts = newClosedOpts;
       state.segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
       state.activeSeg = s + 1;
       clearSel();
@@ -285,6 +292,9 @@ function bindButtonEvents(canvas) {
       const newClosed = new Set();
       for (const idx of state.closed) newClosed.add(idx > hi ? idx - 1 : idx);
       state.closed = newClosed;
+      const newClosedOpts = new Map();
+      for (const [idx, o] of state.closedOpts) if (idx !== s1 && idx !== s2) newClosedOpts.set(idx > hi ? idx - 1 : idx, o);
+      state.closedOpts = newClosedOpts;
       state.segments.splice(hi, 1);
       state.segments.splice(lo, 1, merged);
       state.activeSeg = lo;
@@ -308,11 +318,15 @@ function bindButtonEvents(canvas) {
       const newClosed = new Set();
       for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
       state.closed = newClosed;
+      const newClosedOpts = new Map();
+      for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx - 1 : idx, o);
+      state.closedOpts = newClosedOpts;
       state.segments.splice(s, 1);
       state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
     } else {
       state.segments[0] = [];
       state.closed.delete(0);
+      state.closedOpts.delete(0);
     }
     clearSel();
     draw();
@@ -332,6 +346,7 @@ function bindButtonEvents(canvas) {
     ];
     state.activeSeg = 0;
     state.closed = new Set();
+    state.closedOpts = new Map();
     clearSel();
     draw();
   });
@@ -435,7 +450,7 @@ function bindButtonEvents(canvas) {
       alpha: parseFloat(document.getElementById("sldAlpha").value),
       styles: collectStyles() ?? {},
       closedSet: state.closed,
-      closedCopies: window.closedCurve?.copies ?? 3,
+      closedOptsMap: state.closedOpts,
     });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
@@ -480,6 +495,9 @@ function bindKeyEvents() {
         const newClosed = new Set();
         for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
         state.closed = newClosed;
+        const newClosedOpts = new Map();
+        for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx - 1 : idx, o);
+        state.closedOpts = newClosedOpts;
         state.segments.splice(s, 1);
         state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
       }
@@ -489,12 +507,50 @@ function bindKeyEvents() {
   });
 }
 
+// ── closed-path options modal ─────────────────────────────────────────────────
+function bindClosedOptsModal() {
+  const modal    = document.getElementById("closedOptsModal");
+  const inCopies = document.getElementById("closedOptsCopies");
+  const inFull   = document.getElementById("closedOptsShowFull");
+  let segIdx = null;
+
+  document.getElementById("btnClosedOpts").addEventListener("click", () => {
+    segIdx = state.activeSeg;
+    const opts = getClosedOpts(segIdx);
+    inCopies.value   = opts.copies;
+    inFull.checked   = opts.showFull;
+    modal.style.display = "flex";
+  });
+
+  document.getElementById("btnClosedOptsClose").addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+  function applyOpts() {
+    if (segIdx === null) return;
+    let copies = parseInt(inCopies.value, 10);
+    if (!isFinite(copies) || copies < 3) copies = 3;
+    if (copies % 2 === 0) copies++;
+    inCopies.value = copies; // snap display back to valid odd value
+    state.closedOpts.set(segIdx, { copies, showFull: inFull.checked });
+    draw();
+  }
+
+  inCopies.addEventListener("input", applyOpts);
+  inFull.addEventListener("change", applyOpts);
+}
+
 // ── entry point ──────────────────────────────────────────────────────────────
 export function setupInteraction(canvas) {
   bindCanvasEvents(canvas);
   bindButtonEvents(canvas);
   bindKeyEvents();
   bindStyleModal();
+  bindClosedOptsModal();
   document.getElementById("sldK").addEventListener("input", draw);
   document.getElementById("sldEta").addEventListener("input", draw);
   document.getElementById("sldAlpha").addEventListener("input", draw);

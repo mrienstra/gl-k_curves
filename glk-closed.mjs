@@ -38,10 +38,10 @@ import { glWeights } from "./legendre.mjs";
  * @param {number} nSamples - number of output samples (for the middle copy)
  * @returns {Array} approximately-closed polyline (first ≈ last point)
  */
-export function sampleGLKClosed(pts, k = 1, nSamples = 200) {
+export function sampleGLKClosed(pts, k = 1, nSamples = 200, opts = null) {
   if (pts.length < 3) return [];
 
-  const cfg = (typeof window !== "undefined" ? window.closedCurve : null) ?? {};
+  const cfg = opts ?? (typeof window !== "undefined" ? window.closedCurve : null) ?? {};
   let copies = Math.max(2, Math.round(cfg.copies ?? 3));
   if (copies % 2 === 0) copies++; // must be odd so the middle copy has equal context on both sides
   const showFull = cfg.showFull ?? false;
@@ -93,8 +93,8 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200) {
  * matrixFn receives the degree n of the *extended* sequence.  eta/alpha should
  * be resolved inside matrixFn so they are based on the correct n.
  */
-function _sampleClosedWithMatrix(pts, matrixFn, nSamples) {
-  const cfg = (typeof window !== "undefined" ? window.closedCurve : null) ?? {};
+function _sampleClosedWithMatrix(pts, matrixFn, nSamples, opts = null) {
+  const cfg = opts ?? (typeof window !== "undefined" ? window.closedCurve : null) ?? {};
   let copies = Math.max(2, Math.round(cfg.copies ?? 3));
   if (copies % 2 === 0) copies++; // must be odd so the middle copy has equal context on both sides
   const showFull = cfg.showFull ?? false;
@@ -120,12 +120,13 @@ function _sampleClosedWithMatrix(pts, matrixFn, nSamples) {
 }
 
 /** Sample a closed fractional GL-k curve. */
-export function sampleGLKFractionalClosed(pts, k = 1, nSamples = 200) {
+export function sampleGLKFractionalClosed(pts, k = 1, nSamples = 200, opts = null) {
   if (pts.length < 3) return [];
   return _sampleClosedWithMatrix(
     pts,
     (n) => buildGLKMatrixFractional(n, k),
     nSamples,
+    opts,
   );
 }
 
@@ -137,6 +138,7 @@ export function sampleModifiedGLKClosed(
   eta1 = null,
   eta2 = null,
   alpha = 1,
+  opts = null,
 ) {
   if (pts.length < 3) return [];
   return _sampleClosedWithMatrix(
@@ -152,6 +154,7 @@ export function sampleModifiedGLKClosed(
       return buildModifiedGLKMatrix(n, k, e1, e2, alpha);
     },
     nSamples,
+    opts,
   );
 }
 
@@ -163,6 +166,7 @@ export function sampleModifiedGLKFractionalClosed(
   eta1 = null,
   eta2 = null,
   alpha = 1,
+  opts = null,
 ) {
   if (pts.length < 3) return [];
   return _sampleClosedWithMatrix(
@@ -179,5 +183,6 @@ export function sampleModifiedGLKFractionalClosed(
       return n >= 3 ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
     },
     nSamples,
+    opts,
   );
 }

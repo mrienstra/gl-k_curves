@@ -11,7 +11,7 @@ import {
   sampleModifiedGLKFractional,
 } from "./glk-fractional.mjs";
 import { buildSVG } from "./glk-svg.mjs";
-import { state, isSelected, curveStyles } from "./editor-state.mjs";
+import { state, isSelected, curveStyles, getClosedOpts } from "./editor-state.mjs";
 
 let canvas, ctx;
 export function initDraw(c, context) {
@@ -99,7 +99,7 @@ function updateSVGPreview() {
     alpha: parseFloat(document.getElementById("sldAlpha").value),
     styles: { gl0: curveStyles.gl0, gl1: curveStyles.gl1, gl2: curveStyles.gl2, modGl1: curveStyles.modGl1, frac: curveStyles.frac },
     closedSet: state.closed,
-    closedCopies: window.closedCurve?.copies ?? 3,
+    closedOptsMap: state.closedOpts,
   });
   previewEl.innerHTML = svg;
   const svgEl = previewEl.querySelector("svg");
@@ -137,23 +137,24 @@ export function draw() {
     try {
       if (isClosed) {
         // Closed curve: use periodic extension.
+        const closedOpts = getClosedOpts(s);
         // Don't ctx.closePath() when showFull — the extended sequence doesn't close.
-        const closePath = !(window.closedCurve?.showFull ?? false);
+        const closePath = !closedOpts.showFull;
         if (document.getElementById("chk0").checked)
-          drawCurve(sampleGLKClosed(pts, 0, N), curveStyles.gl0.color, curveStyles.gl0.width, curveStyles.gl0.dash, closePath);
+          drawCurve(sampleGLKClosed(pts, 0, N, closedOpts), curveStyles.gl0.color, curveStyles.gl0.width, curveStyles.gl0.dash, closePath);
         if (document.getElementById("chk1").checked)
-          drawCurve(sampleGLKClosed(pts, 1, N), curveStyles.gl1.color, curveStyles.gl1.width, curveStyles.gl1.dash, closePath);
+          drawCurve(sampleGLKClosed(pts, 1, N, closedOpts), curveStyles.gl1.color, curveStyles.gl1.width, curveStyles.gl1.dash, closePath);
         if (document.getElementById("chk2").checked && pts.length >= 3)
-          drawCurve(sampleGLKClosed(pts, 2, N), curveStyles.gl2.color, curveStyles.gl2.width, curveStyles.gl2.dash, closePath);
+          drawCurve(sampleGLKClosed(pts, 2, N, closedOpts), curveStyles.gl2.color, curveStyles.gl2.width, curveStyles.gl2.dash, closePath);
         if (document.getElementById("chkFrac").checked && pts.length >= 3) {
           const fracSampler =
             document.getElementById("chkFracMod").checked
-              ? sampleModifiedGLKFractionalClosed(pts, kFrac, N, eta, eta, alpha)
-              : sampleGLKFractionalClosed(pts, kFrac, N);
+              ? sampleModifiedGLKFractionalClosed(pts, kFrac, N, eta, eta, alpha, closedOpts)
+              : sampleGLKFractionalClosed(pts, kFrac, N, closedOpts);
           drawCurve(fracSampler, curveStyles.frac.color, curveStyles.frac.width, curveStyles.frac.dash, closePath);
         }
         if (document.getElementById("chkM1").checked && pts.length >= 3)
-          drawCurve(sampleModifiedGLKClosed(pts, 1, N, eta, eta, alpha), curveStyles.modGl1.color, curveStyles.modGl1.width, curveStyles.modGl1.dash, closePath);
+          drawCurve(sampleModifiedGLKClosed(pts, 1, N, eta, eta, alpha, closedOpts), curveStyles.modGl1.color, curveStyles.modGl1.width, curveStyles.modGl1.dash, closePath);
       } else {
         if (document.getElementById("chk0").checked)
           drawCurve(sampleGLK(pts, 0, N), curveStyles.gl0.color, curveStyles.gl0.width, curveStyles.gl0.dash);
@@ -239,5 +240,8 @@ export function draw() {
     selection.size > 0
       ? `${selection.size} pts — Seg ${activeSeg + 1}/${segments.length}`
       : `Seg ${activeSeg + 1} / ${segments.length}`;
+
+  document.getElementById("btnClosedOpts").style.display =
+    state.closed.has(activeSeg) ? "" : "none";
   updateSVGPreview();
 }

@@ -14,7 +14,8 @@ export const state = {
     ],
   ],
   activeSeg: 0,
-  closed: new Set(),  // Set of segment indices that are closed (periodic)
+  closed: new Set(),    // Set of segment indices that are closed (periodic)
+  closedOpts: new Map(), // Map<segIndex, {copies, showFull}> — per-segment closed-curve options
   drag: null, // { s, i } or null — point being dragged
   selection: new Set(), // Set of "s:i" strings — selected points
   hover: null, // { s, i } or null — point under cursor
@@ -34,6 +35,18 @@ export const toggleSel = (s, i) => {
   state.selection.has(k) ? state.selection.delete(k) : state.selection.add(k);
 };
 export const clearSel = () => state.selection.clear();
+
+// ── per-segment closed-curve options ─────────────────────────────────────────
+
+/**
+ * Return the closed-curve options for segment s, merging stored settings with
+ * the global window.closedCurve fallback and built-in defaults.
+ */
+export function getClosedOpts(s) {
+  const global = (typeof window !== 'undefined' ? window.closedCurve : null) ?? {};
+  const stored = state.closedOpts.get(s) ?? {};
+  return { copies: global.copies ?? 3, showFull: global.showFull ?? false, ...stored };
+}
 
 // ── curve styles ─────────────────────────────────────────────────────────────
 // color must be a full 6-digit hex so <input type="color"> can read it back.
@@ -55,6 +68,7 @@ function applySnapshot(snap) {
   state.segments = snap.segments.map((s) => s.map((p) => [p[0], p[1]]));
   state.activeSeg = snap.activeSeg;
   state.closed = new Set(snap.closed ?? []);
+  state.closedOpts = new Map(snap.closedOpts ?? []);
   state.selection = new Set(snap.selection);
 }
 
@@ -63,6 +77,7 @@ export function captureSnapshot() {
     segments: state.segments.map((s) => s.map((p) => [p[0], p[1]])),
     activeSeg: state.activeSeg,
     closed: new Set(state.closed),
+    closedOpts: new Map(state.closedOpts),
     selection: new Set(state.selection),
   };
 }
