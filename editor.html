@@ -175,16 +175,26 @@
       <label><input type="checkbox" id="chk0" checked> GL-0</label>
       <button class="style-btn" id="btnStyle0">⚙</button>
     </div>
-    <label><input type="checkbox" id="chk1" checked> GL-1</label>
-    <label><input type="checkbox" id="chk2" checked> GL-2</label>
-    <label><input type="checkbox" id="chkM0"> mod GL-0</label>
-    <label><input type="checkbox" id="chkM1" checked> mod GL-1</label>
-    <label><input type="checkbox" id="chkPoly" checked> polygon</label>
+    <div class="curve-row">
+      <label><input type="checkbox" id="chk1" checked> GL-1</label>
+      <button class="style-btn" id="btnStyle1">⚙</button>
+    </div>
+    <div class="curve-row">
+      <label><input type="checkbox" id="chk2" checked> GL-2</label>
+      <button class="style-btn" id="btnStyle2">⚙</button>
+    </div>
+    <div class="curve-row">
+      <label><input type="checkbox" id="chkM1" checked> mod GL-1</label>
+      <button class="style-btn" id="btnStyleM1">⚙</button>
+    </div>
+    <div class="curve-row">
+      <label><input type="checkbox" id="chkPoly" checked> polygon</label>
+      <button class="style-btn" id="btnStylePoints">⚙</button>
+    </div>
 
     <div class="legend"><span class="swatch" style="background:#f97"></span> GL-0</div>
     <div class="legend"><span class="swatch" style="background:#7bf"></span> GL-1</div>
     <div class="legend"><span class="swatch" style="background:#8f8"></span> GL-2</div>
-    <div class="legend"><span class="swatch" style="background:#f5c;height:2px"></span> mod GL-0</div>
     <div class="legend"><span class="swatch" style="background:#fc6;height:2px"></span> mod GL-1</div>
     <div class="legend"><span class="swatch" style="background:#555;height:1px"></span> polygon</div>
     <div class="legend"><span class="swatch"
@@ -194,6 +204,7 @@
     <div class="multiple-inline-controls">
       <label><input type="checkbox" id="chkFrac"> GL-k <span id="kVal">1.00</span></label>
       &nbsp;<label><input type="checkbox" id="chkFracMod"> mod</label>
+      <button class="style-btn" id="btnStyleFrac">⚙</button>
     </div>
     <input type="range" id="sldK" min="0" max="3" step="0.05" value="1" style="width:100%;margin:2px 0">
     <p style="margin-top:2px;font-size:10px;color:#555">fractional blend (experimental)</p>
@@ -231,17 +242,21 @@
   <div id="styleModal">
     <div id="styleModalBox">
       <h3 id="styleModalTitle">Style</h3>
-      <div class="modal-row">
+      <div class="modal-row" id="modalColorRow">
         <label for="styleColor">Color</label>
         <input type="color" id="styleColor">
       </div>
-      <div class="modal-row">
+      <div class="modal-row" id="modalWidthRow">
         <label for="styleWidth">Width</label>
         <input type="number" id="styleWidth" min="0.5" max="20" step="0.5">
       </div>
-      <div class="modal-row">
+      <div class="modal-row" id="modalDashRow">
         <label for="styleDash">Dash</label>
         <input type="text" id="styleDash" placeholder="e.g. 4,4">
+      </div>
+      <div class="modal-row" id="modalOpacityRow">
+        <label for="styleOpacity">Opacity</label>
+        <input type="number" id="styleOpacity" min="0" max="1" step="0.05">
       </div>
       <button id="btnStyleClose">Close</button>
     </div>

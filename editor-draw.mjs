@@ -41,6 +41,7 @@ function drawPolygon(pts) {
 
 function drawPoints(pts, segIdx, isActive) {
   const { hover } = state;
+  ctx.globalAlpha = curveStyles.points.opacity;
   for (let i = 0; i < pts.length; i++) {
     const isSel = isSelected(segIdx, i);
     const isHov = hover && hover.s === segIdx && hover.i === i;
@@ -68,6 +69,7 @@ function drawPoints(pts, segIdx, isActive) {
       ctx.stroke();
     }
   }
+  ctx.globalAlpha = 1;
 }
 
 function updateSVGPreview() {
@@ -80,7 +82,6 @@ function updateSVGPreview() {
     showGL0: document.getElementById("chk0").checked,
     showGL1: document.getElementById("chk1").checked,
     showGL2: document.getElementById("chk2").checked,
-    showM0: document.getElementById("chkM0").checked,
     showM1: document.getElementById("chkM1").checked,
     showFrac: document.getElementById("chkFrac").checked,
     showFracMod: document.getElementById("chkFracMod").checked,
@@ -88,7 +89,7 @@ function updateSVGPreview() {
     kFrac: parseFloat(document.getElementById("sldK").value),
     eta: rawEta === 0 ? null : rawEta,
     alpha: parseFloat(document.getElementById("sldAlpha").value),
-    styles: { gl0: curveStyles.gl0 },
+    styles: { gl0: curveStyles.gl0, gl1: curveStyles.gl1, gl2: curveStyles.gl2, modGl1: curveStyles.modGl1, frac: curveStyles.frac },
   });
   previewEl.innerHTML = svg;
   const svgEl = previewEl.querySelector("svg");
@@ -126,22 +127,18 @@ export function draw() {
       if (document.getElementById("chk0").checked)
         drawCurve(sampleGLK(pts, 0, N), curveStyles.gl0.color, curveStyles.gl0.width, curveStyles.gl0.dash);
       if (document.getElementById("chk1").checked && pts.length >= 2)
-        drawCurve(sampleGLK(pts, 1, N), "#7bf");
+        drawCurve(sampleGLK(pts, 1, N), curveStyles.gl1.color, curveStyles.gl1.width, curveStyles.gl1.dash);
       if (document.getElementById("chk2").checked && pts.length >= 3)
-        drawCurve(sampleGLK(pts, 2, N), "#8f8");
+        drawCurve(sampleGLK(pts, 2, N), curveStyles.gl2.color, curveStyles.gl2.width, curveStyles.gl2.dash);
       if (document.getElementById("chkFrac").checked && pts.length >= 2) {
-        ctx.setLineDash([8, 3]);
         const fracSampler =
           document.getElementById("chkFracMod").checked && pts.length >= 4
             ? sampleModifiedGLKFractional(pts, kFrac, N, eta, eta, alpha)
             : sampleGLKFractional(pts, kFrac, N);
-        drawCurve(fracSampler, "#fff", 1.5);
-        ctx.setLineDash([]);
+        drawCurve(fracSampler, curveStyles.frac.color, curveStyles.frac.width, curveStyles.frac.dash);
       }
-      if (document.getElementById("chkM0").checked && pts.length >= 4)
-        drawCurve(sampleModifiedGLK(pts, 0, N, eta, eta, alpha), "#f5c", 2);
       if (document.getElementById("chkM1").checked && pts.length >= 4)
-        drawCurve(sampleModifiedGLK(pts, 1, N, eta, eta, alpha), "#fc6", 2.5);
+        drawCurve(sampleModifiedGLK(pts, 1, N, eta, eta, alpha), curveStyles.modGl1.color, curveStyles.modGl1.width, curveStyles.modGl1.dash);
     } catch (e) {
       ctx.fillStyle = "#f66";
       ctx.fillText(e.message, 10, 20);

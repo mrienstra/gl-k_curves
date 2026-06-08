@@ -37,7 +37,12 @@ export const clearSel = () => state.selection.clear();
 // ── curve styles ─────────────────────────────────────────────────────────────
 // color must be a full 6-digit hex so <input type="color"> can read it back.
 export const curveStyles = {
-  gl0: { color: "#ff9977", width: 2, dash: [] },
+  gl0:    { color: "#ff9977", width: 2,   dash: [] },
+  gl1:    { color: "#77bbff", width: 2,   dash: [] },
+  gl2:    { color: "#88ff88", width: 2,   dash: [] },
+  modGl1: { color: "#ffcc66", width: 2.5, dash: [] },
+  frac:   { color: "#ffffff", width: 1.5, dash: [8, 3] },
+  points: { opacity: 1 },
 };
 
 // ── undo / redo ──────────────────────────────────────────────────────────────

@@ -145,7 +145,7 @@ export function buildSVG(segments, opts = {}) {
   const {
     width, height,
     showGL0 = false, showGL1 = false, showGL2 = false,
-    showM0  = false, showM1  = false,
+    showM1  = false,
     showFrac = false, showFracMod = false,
     showPoly = false,
     kFrac = 1, eta = null, alpha = 1,
@@ -153,7 +153,11 @@ export function buildSVG(segments, opts = {}) {
     styles = {},
   } = opts;
 
-  const { color: gl0Color = '#f97', width: gl0Width = 2, dash: gl0Dash = [] } = styles.gl0 ?? {};
+  const { color: gl0Color = '#f97',  width: gl0Width = 2,   dash: gl0Dash    = []     } = styles.gl0    ?? {};
+  const { color: gl1Color = '#7bf',  width: gl1Width = 2,   dash: gl1Dash    = []     } = styles.gl1    ?? {};
+  const { color: gl2Color = '#8f8',  width: gl2Width = 2,   dash: gl2Dash    = []     } = styles.gl2    ?? {};
+  const { color: modGl1Color = '#fc6', width: modGl1Width = 2.5, dash: modGl1Dash = [] } = styles.modGl1 ?? {};
+  const { color: fracColor = '#fff', width: fracWidth = 1.5, dash: fracDash   = [8, 3] } = styles.frac   ?? {};
 
   // Format parameter values for <title> text
   const etaStr   = eta   === null ? 'auto' : eta.toFixed(2);
@@ -233,17 +237,17 @@ export function buildSVG(segments, opts = {}) {
         gl0Dash.length ? gl0Dash.join(' ') : null);
     if (showGL1)
       addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 1),
-        'gl-1', 'GL-1', '#7bf', 2);
+        'gl-1', 'GL-1', gl1Color, gl1Width,
+        gl1Dash.length ? gl1Dash.join(' ') : null);
     if (showGL2)
       addChainPath(chain, (pts, {n}) => n >= 2 ? buildGLKMatrix(n, 2) : null,
-        'gl-2', 'GL-2', '#8f8', 2);
+        'gl-2', 'GL-2', gl2Color, gl2Width,
+        gl2Dash.length ? gl2Dash.join(' ') : null);
 
-    if (showM0)
-      addChainPath(chain, (pts, {n, e1, e2}) => n >= 3 ? buildModifiedGLKMatrix(n, 0, e1, e2, alpha) : null,
-        'mod-gl-0', `mod GL-0  η=${etaStr}  α=${alphaStr}`, '#f5c', 2);
     if (showM1)
       addChainPath(chain, (pts, {n, e1, e2}) => n >= 3 ? buildModifiedGLKMatrix(n, 1, e1, e2, alpha) : null,
-        'mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`, '#fc6', 2.5);
+        'mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`, modGl1Color, modGl1Width,
+        modGl1Dash.length ? modGl1Dash.join(' ') : null);
 
     if (showFrac) {
       const isMod  = showFracMod;
@@ -253,7 +257,8 @@ export function buildSVG(segments, opts = {}) {
       addChainPath(chain, (pts, {n, e1, e2}) => {
         const Lf = buildGLKMatrixFractional(n, kFrac);
         return (isMod && n >= 3) ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
-      }, `frac-k${kStr}`, title, '#fff', 1.5, '8 3');
+      }, `frac-k${kStr}`, title, fracColor, fracWidth,
+        fracDash.length ? fracDash.join(' ') : null);
     }
   }
 

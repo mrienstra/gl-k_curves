@@ -13,9 +13,15 @@ import {
   commitSnapshot,
   undo,
   redo,
-  curveStyles,
 } from "./editor-state.mjs";
 import { draw } from "./editor-draw.mjs";
+import {
+  bindStyleModal,
+  collectStyles,
+  applyStyles,
+  collectVisibility,
+  applyVisibility,
+} from "./editor-styles.mjs";
 
 // Returns { s, i, px, py } for the closest polyline edge within threshold,
 // or null if none / ambiguous (two edges within ambiguityMargin of each other).
@@ -292,15 +298,17 @@ function bindButtonEvents(canvas) {
       seg.map(([x, y]) => [Math.round(x), Math.round(y)]),
     );
     const raw = parseFloat(document.getElementById("sldEta").value);
-    const s = curveStyles.gl0;
-    const hasCustomStyle = s.color !== "#ff9977" || s.width !== 2 || s.dash.length > 0;
+    const styles = collectStyles();
+    const visibility = collectVisibility();
     const hasEta = raw !== 0;
-    if (!hasEta && !hasCustomStyle) {
-      var payload = rounded;
+    let payload;
+    if (!hasEta && !styles && !visibility) {
+      payload = rounded;
     } else {
-      var payload = { segments: rounded };
+      payload = { segments: rounded };
       if (hasEta) payload.eta = raw;
-      if (hasCustomStyle) payload.styles = { gl0: { color: s.color, width: s.width, dash: s.dash } };
+      if (styles) payload.styles = styles;
+      if (visibility) payload.visibility = visibility;
     }
     navigator.clipboard
       .writeText(JSON.stringify(payload))
@@ -331,8 +339,8 @@ function bindButtonEvents(canvas) {
       clearSel();
       if (etaOverride !== null)
         document.getElementById("sldEta").value = etaOverride;
-      if (typeof data.styles?.gl0 === "object")
-        Object.assign(curveStyles.gl0, data.styles.gl0);
+      applyStyles(data.styles);
+      applyVisibility(data.visibility);
       draw();
     } catch {
       alert(
@@ -375,7 +383,6 @@ function bindButtonEvents(canvas) {
       showGL0: document.getElementById("chk0").checked,
       showGL1: document.getElementById("chk1").checked,
       showGL2: document.getElementById("chk2").checked,
-      showM0: document.getElementById("chkM0").checked,
       showM1: document.getElementById("chkM1").checked,
       showFrac: document.getElementById("chkFrac").checked,
       showFracMod: document.getElementById("chkFracMod").checked,
@@ -383,7 +390,7 @@ function bindButtonEvents(canvas) {
       kFrac: parseFloat(document.getElementById("sldK").value),
       eta: rawEta === 0 ? null : rawEta,
       alpha: parseFloat(document.getElementById("sldAlpha").value),
-      styles: { gl0: curveStyles.gl0 },
+      styles: collectStyles() ?? {},
     });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
@@ -429,61 +436,6 @@ function bindKeyEvents() {
       }
     }
     clearSel();
-    draw();
-  });
-}
-
-// ── style modal ──────────────────────────────────────────────────────────────
-function bindStyleModal() {
-  const modal = document.getElementById("styleModal");
-  const titleEl = document.getElementById("styleModalTitle");
-  const colorIn = document.getElementById("styleColor");
-  const widthIn = document.getElementById("styleWidth");
-  const dashIn  = document.getElementById("styleDash");
-
-  // Which style object is currently being edited
-  let target = null;
-
-  function open(style, label) {
-    target = style;
-    titleEl.textContent = label + " style";
-    colorIn.value = style.color;
-    widthIn.value = style.width;
-    dashIn.value  = style.dash.join(", ");
-    modal.style.display = "flex";
-  }
-
-  document.getElementById("btnStyle0").addEventListener("click", () => open(curveStyles.gl0, "GL-0"));
-
-  document.getElementById("btnStyleClose").addEventListener("click", () => {
-    modal.style.display = "none";
-  });
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) modal.style.display = "none";
-  });
-
-  colorIn.addEventListener("input", (e) => {
-    if (!target) return;
-    target.color = e.target.value;
-    draw();
-  });
-
-  widthIn.addEventListener("input", (e) => {
-    if (!target) return;
-    const v = parseFloat(e.target.value);
-    if (v > 0) { target.width = v; draw(); }
-  });
-
-  dashIn.addEventListener("input", (e) => {
-    if (!target) return;
-    const raw = e.target.value.trim();
-    if (raw === "") {
-      target.dash = [];
-    } else {
-      const parts = raw.split(",").map((s) => parseFloat(s.trim()));
-      if (parts.some((n) => isNaN(n) || n < 0)) return; // invalid — wait for more input
-      target.dash = parts;
-    }
     draw();
   });
 }
