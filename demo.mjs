@@ -272,9 +272,12 @@ canvas.addEventListener('mouseup', e => {
     dragDelta = null;
   } else if (rectSelect) {
     if (dist < 5) {
-      // Click on empty canvas: add point, clear selection
-      clearSel();
-      segments[activeSeg].push([e.offsetX, e.offsetY]);
+      // Click on empty canvas: clear selection if any, otherwise add a point
+      if (selection.size > 0) {
+        clearSel();
+      } else {
+        segments[activeSeg].push([e.offsetX, e.offsetY]);
+      }
     } else {
       // Marquee: select all points inside rect
       const x0 = Math.min(rectSelect.x0, rectSelect.x1);
