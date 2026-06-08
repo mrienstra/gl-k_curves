@@ -51,9 +51,11 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200) {
   //   …p_{n-2}, p0, p1, …       ← correct
   const tile = pts.slice(0, pts.length - 1);
 
-  // Tile `copies` copies of the fundamental period
+  // Tile `copies` copies of the fundamental period, then close with p0 again so the
+  // middle copy spans exactly one period: from the (midCopy)th p0 to the (midCopy+1)th p0.
   const extended = [];
   for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
+  extended.push(tile[0]);
 
   // GL-k Legendre coefficients for the extended sequence
   const coeffs = glkCoeffs(extended, k);
@@ -96,6 +98,7 @@ function _sampleClosedWithMatrix(pts, matrixFn, nSamples) {
   const tile = pts.slice(0, pts.length - 1);
   const extended = [];
   for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
+  extended.push(tile[0]);
 
   const n = extended.length - 1;
   const L = matrixFn(n);

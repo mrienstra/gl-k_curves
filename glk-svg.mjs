@@ -139,6 +139,7 @@ function closedPathDWithMatrix(pts, matrixFn, copies, M) {
 
   const extended = [];
   for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
+  extended.push(tile[0]);
 
   const nExt = extended.length - 1;
   const L = matrixFn(nExt);
