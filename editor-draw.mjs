@@ -10,7 +10,7 @@ import {
   sampleGLKFractional,
   sampleModifiedGLKFractional,
 } from "./glk-fractional";
-import { buildSVG } from "./glk-svg.mjs";
+import { buildSVG } from "./glk-svg";
 import { state, isSelected, curveStyles, getClosedOpts } from "./editor-state";
 
 let canvas, ctx;

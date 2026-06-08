@@ -1,4 +1,4 @@
-import { buildSVG } from "./glk-svg.mjs";
+import { buildSVG } from "./glk-svg";
 import { computeAutoSeamT } from "./glk-closed";
 import { svgFileToSegments } from "./svg-path-import";
 import {
