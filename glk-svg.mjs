@@ -65,22 +65,33 @@ export function legDerivCoeffs(coeffs) {
  *
  * @param {Array}  coeffs - array of [x, y] Legendre coefficients
  * @param {number} M      - number of Hermite cubic segments (default 8)
- * @param {number} tStart - start of parameter range (default -1)
- * @param {number} tEnd   - end of parameter range (default 1)
- * @returns {string}      - SVG path data "M x,y C x,y x,y x,y C …"
+ * @param {number}  tStart  - start of parameter range (default -1)
+ * @param {number}  tEnd    - end of parameter range (default 1)
+ * @param {boolean} uniform - if true, use uniform t-spacing instead of cosine.
+ *                            Cosine (default) minimizes max approximation error;
+ *                            uniform gives even segment-length distribution, which
+ *                            is better for closed curves where cosine clustering
+ *                            would oversample near the seam endpoints.
+ * @returns {string}        - SVG path data "M x,y C x,y x,y x,y C …"
  */
-export function coeffsToSVGPath(coeffs, M = 8, tStart = -1, tEnd = 1) {
+export function coeffsToSVGPath(coeffs, M = 8, tStart = -1, tEnd = 1, uniform = false) {
   const dc = legDerivCoeffs(coeffs);
   const zero = [0, 0];
   const deriv = (t) => dc.length > 0 ? gleveal(dc, t) : zero;
-  // Cosine spacing within [tStart, tEnd]
   const mid = (tStart + tEnd) / 2;
   const amp = (tEnd - tStart) / 2;
 
   let d = '';
   for (let m = 0; m < M; m++) {
-    const a = mid - amp * Math.cos(Math.PI * m / M);
-    const b = mid - amp * Math.cos(Math.PI * (m + 1) / M);
+    // Cosine spacing (Chebyshev nodes) minimises max polynomial approximation
+    // error for open curves; uniform spacing gives even arc distribution for
+    // closed curves (avoids dense clusters at the seam endpoints).
+    const a = uniform
+      ? tStart + (tEnd - tStart) * m / M
+      : mid - amp * Math.cos(Math.PI * m / M);
+    const b = uniform
+      ? tStart + (tEnd - tStart) * (m + 1) / M
+      : mid - amp * Math.cos(Math.PI * (m + 1) / M);
     const h = b - a;
 
     const p0  = gleveal(coeffs, a);
@@ -152,7 +163,7 @@ function closedPathDWithMatrix(pts, matrixFn, copies, M, seamTOverride = null) {
     ? seamTOverride
     : findSeamT(coeffs, tile[0], copies);
 
-  return coeffsToSVGPath(coeffs, M, -seamT, seamT) + ' Z';
+  return coeffsToSVGPath(coeffs, M, -seamT, seamT, true) + ' Z';
 }
 
 /** Closed-curve path for integer GL-k (convenience wrapper). */
