@@ -24,6 +24,8 @@ import { legendreP, glNodes } from './legendre.mjs';
 
 // ---------------------------------------------------------------------------
 
+const _gl0MatrixCache = new Map();
+
 /** g_{i,j} — j-th Legendre coeff of G_i^n. */
 function gCoeff(i, j, n, nodes) {
   if (i === -1) return j === 0 ?  0.5 : 0;
@@ -40,8 +42,10 @@ function gCoeff(i, j, n, nodes) {
 /**
  * Build the (n+1) × (n+1) basis-change matrix M_n.
  * Returns a row-major array:  M[j] is a Float64Array of length n+1.
+ * Result is memoized: calling with the same n always returns the same object.
  */
 export function buildGL0Matrix(n) {
+  if (_gl0MatrixCache.has(n)) return _gl0MatrixCache.get(n);
   const nodes = glNodes(n);   // n GL nodes (roots of P_n)
   const M = [];
   for (let j = 0; j <= n; j++) {
@@ -51,6 +55,7 @@ export function buildGL0Matrix(n) {
     }
     M.push(row);
   }
+  _gl0MatrixCache.set(n, M);
   return M;
 }
 

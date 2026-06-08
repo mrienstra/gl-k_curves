@@ -15,20 +15,20 @@
 
 import { glkCoeffs } from './glk-curve.mjs';
 
-export function buildGLKMatrix(n, k) {
-  const L = Array.from({ length: n + 1 }, () => new Float64Array(n + 1));
+const _glkMatrixCache = new Map();
 
+export function buildGLKMatrix(n, k) {
+  const key = `${n},${k}`;
+  if (_glkMatrixCache.has(key)) return _glkMatrixCache.get(key);
+
+  const L = Array.from({ length: n + 1 }, () => new Float64Array(n + 1));
   for (let i = 0; i <= n; i++) {
-    // Standard basis vector e_i (scalar control points)
     const e = new Array(n + 1).fill(0);
     e[i] = 1;
-
-    const col = glkCoeffs(e, k);   // c = L_k · e_i = i-th column of L_k
-
-    for (let j = 0; j <= n; j++) {
-      L[j][i] = col[j];
-    }
+    const col = glkCoeffs(e, k);
+    for (let j = 0; j <= n; j++) L[j][i] = col[j];
   }
+  _glkMatrixCache.set(key, L);
   return L;
 }
 
