@@ -93,11 +93,40 @@ export function coeffsToSVGPath(coeffs, M = 8) {
 }
 
 // ---------------------------------------------------------------------------
+// Chain detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Group consecutive segments that share an endpoint into chains.
+ * Segments[s] and segments[s+1] are chained when the last point of s equals
+ * the first point of s+1 (exact coordinate match, as produced by "split").
+ *
+ * Returns an array of chains, each chain being an array of indices into segs.
+ */
+function buildChains(segs) {
+  if (segs.length === 0) return [];
+  const chains = [[0]];
+  for (let s = 1; s < segs.length; s++) {
+    const tail  = segs[s - 1][segs[s - 1].length - 1];
+    const head  = segs[s][0];
+    if (tail[0] === head[0] && tail[1] === head[1])
+      chains[chains.length - 1].push(s);
+    else
+      chains.push([s]);
+  }
+  return chains;
+}
+
+// ---------------------------------------------------------------------------
 // Full SVG document builder
 // ---------------------------------------------------------------------------
 
 /**
  * Build a complete SVG document mirroring the current demo canvas.
+ *
+ * Consecutive segments that share an endpoint (e.g. produced by "split") are
+ * merged into a single SVG <path> element per curve type so that the join is
+ * rendered with a proper stroke-linejoin rather than two separate stroke caps.
  *
  * @param {Array}  segments - array of control-point arrays  [[x,y], …]
  * @param {Object} opts     - mirrors the demo's checkboxes / sliders:
@@ -132,77 +161,102 @@ export function buildSVG(segments, opts = {}) {
   // Each group: { id, title, paths: string[] }
   const groups = [];
 
-  // Helper: create or reuse a group bucket
   function getGroup(id, title) {
     let g = groups.find(g => g.id === id);
     if (!g) { g = { id, title, paths: [] }; groups.push(g); }
     return g;
   }
 
-  for (const pts of segments) {
-    if (pts.length < 2) continue;
-    const n = pts.length - 1;
+  // Work only with valid segments (≥2 points)
+  const valid = segments.filter(s => s.length >= 2);
+  const chains = buildChains(valid);
 
-    // Resolve eta (depends on n via glWeights)
+  // Per-segment helper: resolve eta and segM
+  function segInfo(pts) {
+    const n = pts.length - 1;
     let e1 = eta, e2 = eta;
     if (e1 === null || e2 === null) {
       const w0 = glWeights(n)[0];
       if (e1 === null) e1 = 1 / w0;
       if (e2 === null) e2 = 1 / w0;
     }
+    return { n, e1, e2, segM: Math.max(M, n) };
+  }
 
-    // Scale Hermite segments with polynomial degree so endpoint accuracy holds.
-    const segM = Math.max(M, n);
-
-    // Helper: matrix → path string
-    const pathStr = (L, stroke, sw, dashArray = null) => {
+  // Build merged path data for a chain given a per-segment matrix factory.
+  // matrixFn(pts, info) → matrix | null  (null = skip this curve type for segment)
+  // Returns null if any segment in the chain is skipped.
+  function chainPathD(chain, matrixFn) {
+    let d = '';
+    for (let ci = 0; ci < chain.length; ci++) {
+      const pts  = valid[chain[ci]];
+      const info = segInfo(pts);
+      const L    = matrixFn(pts, info);
+      if (!L) return null;
       const coeffs = applyMatrix(L, pts);
-      const d = coeffsToSVGPath(coeffs, segM);
-      const da = dashArray ? ` stroke-dasharray="${dashArray}"` : '';
-      return `    <path d="${d}" stroke="${stroke}" fill="none" stroke-width="${sw}"${da}/>`;
-    };
+      const segD   = coeffsToSVGPath(coeffs, info.segM);
+      // For segments after the first: strip the "M x,y " prefix — the current
+      // point in the SVG path is already at that coordinate (end of previous C).
+      d += ci === 0 ? segD : ' ' + segD.replace(/^M \S+ /, '');
+    }
+    return d;
+  }
 
+  function addChainPath(chain, matrixFn, groupId, groupTitle, stroke, sw, dashArray = null) {
+    const d = chainPathD(chain, matrixFn);
+    if (!d) return;
+    const da = dashArray ? ` stroke-dasharray="${dashArray}"` : '';
+    getGroup(groupId, groupTitle).paths.push(
+      `    <path d="${d}" stroke="${stroke}" fill="none" stroke-width="${sw}"${da}/>`
+    );
+  }
+
+  for (const chain of chains) {
     if (showPoly) {
-      const ptStr = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-      getGroup('polygon', 'Control polygon')
-        .paths.push(`    <polyline points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`);
+      // Polygon: one polyline per segment (dashed lines between separate segments
+      // would be misleading, so keep them independent).
+      for (const si of chain) {
+        const pts   = valid[si];
+        const ptStr = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+        getGroup('polygon', 'Control polygon').paths.push(
+          `    <polyline points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`
+        );
+      }
     }
 
     if (showGL0)
-      getGroup('gl-0', 'GL-0')
-        .paths.push(pathStr(buildGLKMatrix(n, 0), '#f97', 2));
+      addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 0),
+        'gl-0', 'GL-0', '#f97', 2);
     if (showGL1)
-      getGroup('gl-1', 'GL-1')
-        .paths.push(pathStr(buildGLKMatrix(n, 1), '#7bf', 2));
-    if (showGL2 && n >= 2)
-      getGroup('gl-2', 'GL-2')
-        .paths.push(pathStr(buildGLKMatrix(n, 2), '#8f8', 2));
+      addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 1),
+        'gl-1', 'GL-1', '#7bf', 2);
+    if (showGL2)
+      addChainPath(chain, (pts, {n}) => n >= 2 ? buildGLKMatrix(n, 2) : null,
+        'gl-2', 'GL-2', '#8f8', 2);
 
-    if (n >= 3) {
-      if (showM0)
-        getGroup('mod-gl-0', `mod GL-0  η=${etaStr}  α=${alphaStr}`)
-          .paths.push(pathStr(buildModifiedGLKMatrix(n, 0, e1, e2, alpha), '#f5c', 2));
-      if (showM1)
-        getGroup('mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`)
-          .paths.push(pathStr(buildModifiedGLKMatrix(n, 1, e1, e2, alpha), '#fc6', 2.5));
-    }
+    if (showM0)
+      addChainPath(chain, (pts, {n, e1, e2}) => n >= 3 ? buildModifiedGLKMatrix(n, 0, e1, e2, alpha) : null,
+        'mod-gl-0', `mod GL-0  η=${etaStr}  α=${alphaStr}`, '#f5c', 2);
+    if (showM1)
+      addChainPath(chain, (pts, {n, e1, e2}) => n >= 3 ? buildModifiedGLKMatrix(n, 1, e1, e2, alpha) : null,
+        'mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`, '#fc6', 2.5);
 
     if (showFrac) {
-      const Lf     = buildGLKMatrixFractional(n, kFrac);
-      const isMod  = showFracMod && n >= 3;
-      const Luse   = isMod ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
+      const isMod  = showFracMod;
       const title  = isMod
         ? `GL-k (fractional, mod)  k=${kStr}  η=${etaStr}  α=${alphaStr}`
         : `GL-k (fractional)  k=${kStr}`;
-      getGroup(`frac-k${kStr}`, title)
-        .paths.push(pathStr(Luse, '#fff', 1.5, '8 3'));
+      addChainPath(chain, (pts, {n, e1, e2}) => {
+        const Lf = buildGLKMatrixFractional(n, kFrac);
+        return (isMod && n >= 3) ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
+      }, `frac-k${kStr}`, title, '#fff', 1.5, '8 3');
     }
   }
 
   // Control points (collected across all segments into one group)
   if (showPoly) {
     const cpPaths = [];
-    for (const pts of segments)
+    for (const pts of valid)
       for (const [x, y] of pts)
         cpPaths.push(`    <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#666"/>`);
     if (cpPaths.length)
