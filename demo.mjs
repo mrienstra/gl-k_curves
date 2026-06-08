@@ -11,10 +11,21 @@ const ctx    = canvas.getContext('2d');
 let segments = [
   [[120, 350], [200, 100], [320, 280], [440, 80], [560, 300], [660, 140]],
 ];
-let activeSeg = 0;
-let drag = null;       // { s: segIndex, i: ptIndex } or null
-let selected = null;   // { s: segIndex, i: ptIndex } or null — persists after mouseup
+let activeSeg  = 0;
+let drag       = null;      // { s, i } or null — point being dragged
+let selection  = new Set(); // Set of "s:i" strings — selected points
+let hover      = null;      // { s, i } or null — point under cursor
+let rectSelect = null;      // { x0, y0, x1, y1 } or null — marquee in progress
+let dragDelta  = null;      // { lastX, lastY } for multi-point move
 let mouseDownPos = null;
+
+// ── selection helpers ────────────────────────────────────────────────────────
+const selKey     = (s, i) => `${s}:${i}`;
+const isSelected = (s, i) => selection.has(selKey(s, i));
+const addToSel   = (s, i) => selection.add(selKey(s, i));
+const removeFromSel = (s, i) => selection.delete(selKey(s, i));
+const toggleSel  = (s, i) => { const k = selKey(s, i); selection.has(k) ? selection.delete(k) : selection.add(k); };
+const clearSel   = ()     => selection.clear();
 
 // ── sizing ─────────────────────────────────────────────────────────────────
 function resize() {
@@ -55,16 +66,18 @@ function drawPolygon(pts) {
   ctx.setLineDash([]);
 }
 
-function drawPoints(pts, isActive, selectedIdx = -1) {
+function drawPoints(pts, segIdx, isActive) {
   for (let i = 0; i < pts.length; i++) {
-    const isSel = i === selectedIdx;
+    const isSel = isSelected(segIdx, i);
+    const isHov = hover && hover.s === segIdx && hover.i === i;
     ctx.beginPath();
-    ctx.arc(pts[i][0], pts[i][1], isActive ? 6 : 4, 0, Math.PI * 2);
+    ctx.arc(pts[i][0], pts[i][1], isSel ? 7 : (isActive || isHov) ? 6 : 4, 0, Math.PI * 2);
     ctx.fillStyle = isSel ? '#0ff'
+      : isHov ? '#ddd'
       : isActive ? (i === 0 || i === pts.length - 1 ? '#fa6' : '#aaa')
       : '#666';
     ctx.fill();
-    if (isActive || isSel) {
+    if (isActive || isSel || isHov) {
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = isSel ? 2 : 1;
       ctx.stroke();
@@ -149,13 +162,27 @@ function draw() {
   }
 
   if (document.getElementById('chkPoly').checked)
-    for (let s = 0; s < segments.length; s++) {
-      const selIdx = (selected && selected.s === s) ? selected.i : -1;
-      drawPoints(segments[s], s === activeSeg, selIdx);
-    }
+    for (let s = 0; s < segments.length; s++)
+      drawPoints(segments[s], s, s === activeSeg);
 
-  document.getElementById('segInfo').textContent =
-    `Seg ${activeSeg + 1} / ${segments.length}`;
+  // Marquee selection rect
+  if (rectSelect) {
+    const rx = Math.min(rectSelect.x0, rectSelect.x1);
+    const ry = Math.min(rectSelect.y0, rectSelect.y1);
+    const rw = Math.abs(rectSelect.x1 - rectSelect.x0);
+    const rh = Math.abs(rectSelect.y1 - rectSelect.y0);
+    ctx.strokeStyle = '#5af';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 2]);
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.fillStyle = 'rgba(85,170,255,0.06)';
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.setLineDash([]);
+  }
+
+  document.getElementById('segInfo').textContent = selection.size > 0
+    ? `${selection.size} pts — Seg ${activeSeg + 1}/${segments.length}`
+    : `Seg ${activeSeg + 1} / ${segments.length}`;
   updateSVGPreview();
 }
 
@@ -175,37 +202,103 @@ canvas.addEventListener('mousedown', e => {
   const x = e.offsetX, y = e.offsetY;
   const hit = nearestPoint(x, y);
   mouseDownPos = { x, y };
-  if (hit) { drag = hit; activeSeg = hit.s; draw(); return; }
-  selected = null;
-  segments[activeSeg].push([x, y]);
-  draw();
+  if (hit) {
+    drag = hit;
+    dragDelta = { lastX: x, lastY: y };
+    activeSeg = hit.s;
+    draw();
+    return;
+  }
+  rectSelect = { x0: x, y0: y, x1: x, y1: y };
 });
 
 canvas.addEventListener('mousemove', e => {
-  if (!drag) return;
-  segments[drag.s][drag.i] = [e.offsetX, e.offsetY];
-  draw();
+  const x = e.offsetX, y = e.offsetY;
+  if (drag) {
+    if (isSelected(drag.s, drag.i) && selection.size > 1) {
+      // Move all selected points by delta
+      const dx = x - dragDelta.lastX, dy = y - dragDelta.lastY;
+      for (const k of selection) {
+        const [ss, si] = k.split(':').map(Number);
+        const pt = segments[ss][si];
+        segments[ss][si] = [pt[0] + dx, pt[1] + dy];
+      }
+      dragDelta = { lastX: x, lastY: y };
+    } else {
+      segments[drag.s][drag.i] = [x, y];
+    }
+    draw();
+    return;
+  }
+  if (rectSelect) {
+    rectSelect.x1 = x; rectSelect.y1 = y;
+    draw();
+    return;
+  }
+  // Hover update
+  const hit = nearestPoint(x, y);
+  const newKey = hit ? selKey(hit.s, hit.i) : null;
+  const oldKey = hover ? selKey(hover.s, hover.i) : null;
+  if (newKey !== oldKey) {
+    hover = hit;
+    canvas.style.cursor = hit ? 'pointer' : 'crosshair';
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (hover) { hover = null; canvas.style.cursor = 'crosshair'; draw(); }
+  if (rectSelect) { rectSelect = null; draw(); }
 });
 
 canvas.addEventListener('mouseup', e => {
-  if (drag && mouseDownPos) {
-    const dist = Math.hypot(e.offsetX - mouseDownPos.x, e.offsetY - mouseDownPos.y);
+  const dist = mouseDownPos
+    ? Math.hypot(e.offsetX - mouseDownPos.x, e.offsetY - mouseDownPos.y)
+    : Infinity;
+
+  if (drag) {
     if (dist < 5) {
-      // click (not drag) — toggle selection
-      selected = (selected && selected.s === drag.s && selected.i === drag.i) ? null : drag;
+      // Click on point: select / toggle
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        toggleSel(drag.s, drag.i);
+      } else {
+        const wasOnly = selection.size === 1 && isSelected(drag.s, drag.i);
+        clearSel();
+        if (!wasOnly) addToSel(drag.s, drag.i);
+      }
       draw();
     }
+    drag = null;
+    dragDelta = null;
+  } else if (rectSelect) {
+    if (dist < 5) {
+      // Click on empty canvas: add point, clear selection
+      clearSel();
+      segments[activeSeg].push([e.offsetX, e.offsetY]);
+    } else {
+      // Marquee: select all points inside rect
+      const x0 = Math.min(rectSelect.x0, rectSelect.x1);
+      const x1 = Math.max(rectSelect.x0, rectSelect.x1);
+      const y0 = Math.min(rectSelect.y0, rectSelect.y1);
+      const y1 = Math.max(rectSelect.y0, rectSelect.y1);
+      if (!e.shiftKey && !e.metaKey && !e.ctrlKey) clearSel();
+      for (let s = 0; s < segments.length; s++)
+        for (let i = 0; i < segments[s].length; i++) {
+          const [px, py] = segments[s][i];
+          if (px >= x0 && px <= x1 && py >= y0 && py <= y1) addToSel(s, i);
+        }
+    }
+    rectSelect = null;
+    draw();
   }
-  drag = null;
   mouseDownPos = null;
 });
 
 canvas.addEventListener('dblclick', e => {
   const hit = nearestPoint(e.offsetX, e.offsetY);
   if (!hit) return;
-  if (selected && selected.s === hit.s && selected.i === hit.i) selected = null;
+  removeFromSel(hit.s, hit.i);
   segments[hit.s].splice(hit.i, 1);
-  // Prune empty segments, but always keep at least one
   if (segments[hit.s].length === 0 && segments.length > 1) {
     segments.splice(hit.s, 1);
     activeSeg = Math.min(activeSeg, segments.length - 1);
@@ -214,13 +307,34 @@ canvas.addEventListener('dblclick', e => {
 });
 
 document.getElementById('btnSplit').addEventListener('click', () => {
-  if (!selected) return;
-  const { s, i } = selected;
+  if (selection.size !== 1) return;
+  const [key] = selection;
+  const [s, i] = key.split(':').map(Number);
   const pts = segments[s];
   if (i === 0 || i === pts.length - 1) return; // endpoint — nothing to split
   segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
   activeSeg = s + 1;
-  selected = null;
+  clearSel();
+  draw();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if (selection.size === 0) return;
+  e.preventDefault();
+  // Sort descending so splices don't shift later indices
+  const toDelete = [...selection]
+    .map(k => { const [s, i] = k.split(':').map(Number); return { s, i }; })
+    .sort((a, b) => b.s - a.s || b.i - a.i);
+  for (const { s, i } of toDelete) {
+    if (s >= segments.length || i >= segments[s].length) continue;
+    segments[s].splice(i, 1);
+    if (segments[s].length === 0 && segments.length > 1) {
+      segments.splice(s, 1);
+      activeSeg = Math.min(activeSeg, segments.length - 1);
+    }
+  }
+  clearSel();
   draw();
 });
 
@@ -237,6 +351,7 @@ document.getElementById('btnClear').addEventListener('click', () => {
   } else {
     segments[0] = [];
   }
+  clearSel();
   draw();
 });
 
@@ -245,6 +360,7 @@ document.getElementById('btnReset').addEventListener('click', () => {
     [[120, 350], [200, 100], [320, 280], [440, 80], [560, 300], [660, 140]],
   ];
   activeSeg = 0;
+  clearSel();
   draw();
 });
 
@@ -280,6 +396,7 @@ document.getElementById('btnPaste').addEventListener('click', async () => {
     }
     segments  = segs;
     activeSeg = 0;
+    clearSel();
     if (etaOverride !== null) {
       document.getElementById('sldEta').value = etaOverride;
     }
@@ -300,7 +417,7 @@ document.getElementById('fileSVGImport').addEventListener('change', async e => {
   });
   e.target.value = '';
   if (!segs) { alert('No supported path found in SVG.'); return; }
-  segments = segs; activeSeg = 0; draw();
+  segments = segs; activeSeg = 0; clearSel(); draw();
 });
 
 document.getElementById('btnSVG').addEventListener('click', () => {
