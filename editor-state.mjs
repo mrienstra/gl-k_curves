@@ -14,6 +14,7 @@ export const state = {
     ],
   ],
   activeSeg: 0,
+  closed: new Set(),  // Set of segment indices that are closed (periodic)
   drag: null, // { s, i } or null — point being dragged
   selection: new Set(), // Set of "s:i" strings — selected points
   hover: null, // { s, i } or null — point under cursor
@@ -53,6 +54,7 @@ const MAX_HISTORY = 100;
 function applySnapshot(snap) {
   state.segments = snap.segments.map((s) => s.map((p) => [p[0], p[1]]));
   state.activeSeg = snap.activeSeg;
+  state.closed = new Set(snap.closed ?? []);
   state.selection = new Set(snap.selection);
 }
 
@@ -60,6 +62,7 @@ export function captureSnapshot() {
   return {
     segments: state.segments.map((s) => s.map((p) => [p[0], p[1]])),
     activeSeg: state.activeSeg,
+    closed: new Set(state.closed),
     selection: new Set(state.selection),
   };
 }

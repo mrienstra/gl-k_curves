@@ -4,6 +4,14 @@ import { setupInteraction } from "./editor-interact.mjs";
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
+// ── console-accessible globals ────────────────────────────────────────────────
+// Closed-curve debug config.  Edit in devtools console, then call window.draw().
+window.closedCurve = {
+  copies:   3,     // how many times to tile the polygon for the extension
+  showFull: false, // true → render entire extended sequence; false → middle copy only
+};
+window.draw = draw;
+
 initDraw(canvas, ctx);
 setupInteraction(canvas);
 

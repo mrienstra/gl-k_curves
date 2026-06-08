@@ -204,7 +204,12 @@ function bindCanvasEvents(canvas) {
     removeFromSel(hit.s, hit.i);
     state.segments[hit.s].splice(hit.i, 1);
     if (state.segments[hit.s].length === 0 && state.segments.length > 1) {
-      state.segments.splice(hit.s, 1);
+      const s = hit.s;
+      state.closed.delete(s);
+      const newClosed = new Set();
+      for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
+      state.closed = newClosed;
+      state.segments.splice(s, 1);
       state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
     }
     draw();
@@ -225,18 +230,43 @@ function bindButtonEvents(canvas) {
       const pts = state.segments[s];
       if (i === 0 || i === pts.length - 1) return;
       pushHistory();
+      // Splitting always opens the segment; shift closed indices above s up by 1
+      state.closed.delete(s);
+      const newClosed = new Set();
+      for (const idx of state.closed) newClosed.add(idx > s ? idx + 1 : idx);
+      state.closed = newClosed;
       state.segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
       state.activeSeg = s + 1;
       clearSel();
       draw();
     } else if (selArr.length === 2) {
-      // Join — orient each segment so the selected endpoint is the tail of a / head of b
       const [{ s: s1, i: i1 }, { s: s2, i: i2 }] = selArr;
-      if (s1 === s2) return;
       const pts1 = state.segments[s1], pts2 = state.segments[s2];
       if (!(i1 === 0 || i1 === pts1.length - 1)) return;
       if (!(i2 === 0 || i2 === pts2.length - 1)) return;
 
+      if (s1 === s2) {
+        // Close / open — must be the two distinct endpoints of the same segment
+        if (i1 === i2) return;
+        if (!((i1 === 0 && i2 === pts1.length - 1) || (i2 === 0 && i1 === pts1.length - 1))) return;
+        pushHistory();
+        if (state.closed.has(s1)) {
+          state.closed.delete(s1);
+        } else {
+          // Average the two endpoint positions (same as joining two segments)
+          const pts = state.segments[s1];
+          const jx = (pts[0][0] + pts[pts.length - 1][0]) / 2;
+          const jy = (pts[0][1] + pts[pts.length - 1][1]) / 2;
+          pts[0] = [jx, jy];
+          pts[pts.length - 1] = [jx, jy];
+          state.closed.add(s1);
+        }
+        clearSel();
+        draw();
+        return;
+      }
+
+      // Join — orient each segment so the selected endpoint is the tail of a / head of b
       const a = i1 === 0 ? pts1.slice().reverse() : pts1.slice(); // selected pt → tail
       const b = i2 === pts2.length - 1 ? pts2.slice().reverse() : pts2.slice(); // selected pt → head
 
@@ -249,6 +279,12 @@ function bindButtonEvents(canvas) {
       // Splice out both segments (higher index first to preserve lower index)
       pushHistory();
       const [hi, lo] = s1 > s2 ? [s1, s2] : [s2, s1];
+      // Both source segments lose their closed state; shift indices above hi down by 1
+      state.closed.delete(s1);
+      state.closed.delete(s2);
+      const newClosed = new Set();
+      for (const idx of state.closed) newClosed.add(idx > hi ? idx - 1 : idx);
+      state.closed = newClosed;
       state.segments.splice(hi, 1);
       state.segments.splice(lo, 1, merged);
       state.activeSeg = lo;
@@ -267,10 +303,16 @@ function bindButtonEvents(canvas) {
   document.getElementById("btnClear").addEventListener("click", () => {
     pushHistory();
     if (state.segments.length > 1) {
-      state.segments.splice(state.activeSeg, 1);
+      const s = state.activeSeg;
+      state.closed.delete(s);
+      const newClosed = new Set();
+      for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
+      state.closed = newClosed;
+      state.segments.splice(s, 1);
       state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
     } else {
       state.segments[0] = [];
+      state.closed.delete(0);
     }
     clearSel();
     draw();
@@ -289,6 +331,7 @@ function bindButtonEvents(canvas) {
       ],
     ];
     state.activeSeg = 0;
+    state.closed = new Set();
     clearSel();
     draw();
   });
@@ -431,6 +474,10 @@ function bindKeyEvents() {
       if (s >= state.segments.length || i >= state.segments[s].length) continue;
       state.segments[s].splice(i, 1);
       if (state.segments[s].length === 0 && state.segments.length > 1) {
+        state.closed.delete(s);
+        const newClosed = new Set();
+        for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
+        state.closed = newClosed;
         state.segments.splice(s, 1);
         state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
       }
