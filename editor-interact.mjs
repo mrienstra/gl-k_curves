@@ -11,6 +11,25 @@ import {
 } from "./editor-state.mjs";
 import { draw } from "./editor-draw.mjs";
 
+function nearestEdge(x, y, threshold = 15) {
+  const { segments } = state;
+  let best = null, bestD = Infinity;
+  for (let s = 0; s < segments.length; s++) {
+    const pts = segments[s];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i];
+      const [bx, by] = pts[i + 1];
+      const dx = bx - ax, dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) continue;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2));
+      const d = Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+      if (d < threshold && d < bestD) { best = { s, i }; bestD = d; }
+    }
+  }
+  return best;
+}
+
 function nearestPoint(x, y, radius = 12) {
   const { segments } = state;
   let best = null,
@@ -119,7 +138,13 @@ function bindCanvasEvents(canvas) {
         if (state.selection.size > 0) {
           clearSel();
         } else {
-          state.segments[state.activeSeg].push([e.offsetX, e.offsetY]);
+          const edge = nearestEdge(e.offsetX, e.offsetY);
+          if (edge) {
+            state.segments[edge.s].splice(edge.i + 1, 0, [e.offsetX, e.offsetY]);
+            state.activeSeg = edge.s;
+          } else {
+            state.segments[state.activeSeg].push([e.offsetX, e.offsetY]);
+          }
         }
       } else {
         const x0 = Math.min(state.rectSelect.x0, state.rectSelect.x1);
