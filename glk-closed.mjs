@@ -21,8 +21,8 @@
  *                                           sampled parameter range (null = auto)
  *
  * Seam T: the sampled range is [-seamT, +seamT] (symmetric around 0).
- * Auto-compute finds the t > 0 where the curve is closest to the seam
- * point p0, which gives near-zero visual gap for any GL-k order.
+ * Auto-compute minimises dist(curve(-t), curve(+t)) — the actual start/end
+ * gap of the sampled segment — which correctly handles asymmetric shapes.
  * The equal-cosine-spacing default would be -cos(π*(midCopy+1)/copies),
  * e.g. 0.5 for copies=3; but the true optimum is a bit smaller for each k.
  */
@@ -51,9 +51,16 @@ export function cosSeamT(copies) {
 }
 
 /**
- * Find the seam half-width: the t > 0 in [tLo, tHi] where the curve is
- * closest to the seam point p0.  For symmetric tilings this also minimises
- * the gap between curve(-t) and curve(+t).
+ * Find the seam half-width: the t > 0 in [tLo, tHi] that minimizes the gap
+ * between curve(-t) and curve(+t) — the visual start/end distance of the
+ * sampled segment.
+ *
+ * This is more robust than minimizing dist(curve(t), p0) for asymmetric
+ * shapes, where the curve may approach p0 from an oblique angle that does
+ * not correspond to actual seam closure.
+ *
+ * The `p0` parameter is retained for call-site compatibility but is no longer
+ * used by the optimization.
  *
  * Uses a 60-point scan followed by golden-section refinement.
  */
@@ -63,11 +70,15 @@ export function findSeamT(coeffs, p0, copies) {
   const tHi   = tCos + 0.15;
   const SCAN  = 60;
 
+  function gap(t) {
+    const a = gleveal(coeffs, -t), b = gleveal(coeffs, t);
+    return Math.hypot(a[0] - b[0], a[1] - b[1]);
+  }
+
   let bestT = tCos, bestD = Infinity;
   for (let i = 0; i <= SCAN; i++) {
-    const t  = tLo + (tHi - tLo) * i / SCAN;
-    const pt = gleveal(coeffs, t);
-    const d  = Math.hypot(pt[0] - p0[0], pt[1] - p0[1]);
+    const t = tLo + (tHi - tLo) * i / SCAN;
+    const d = gap(t);
     if (d < bestD) { bestD = d; bestT = t; }
   }
 
@@ -79,10 +90,7 @@ export function findSeamT(coeffs, p0, copies) {
   for (let iter = 0; iter < 40; iter++) {
     const m1 = hi - GR * (hi - lo);
     const m2 = lo + GR * (hi - lo);
-    const pt1 = gleveal(coeffs, m1), pt2 = gleveal(coeffs, m2);
-    const d1 = Math.hypot(pt1[0] - p0[0], pt1[1] - p0[1]);
-    const d2 = Math.hypot(pt2[0] - p0[0], pt2[1] - p0[1]);
-    if (d1 < d2) hi = m2; else lo = m1;
+    if (gap(m1) < gap(m2)) hi = m2; else lo = m1;
   }
   return (lo + hi) / 2;
 }
@@ -95,6 +103,25 @@ function sampleSymmetric(coeffs, seamT, nSamples) {
     out.push(gleveal(coeffs, t));
   }
   return out;
+}
+
+/**
+ * Compute the auto-seamT value that sampleGLKClosed would use for a given k.
+ * Exported so the UI can display it without re-running the sampler.
+ *
+ * @param {Array}  pts    - closed control points (first === last)
+ * @param {number} copies - tiling count (will be forced odd)
+ * @param {number} k      - GL-k order
+ */
+export function computeAutoSeamT(pts, copies, k = 1) {
+  if (pts.length < 3) return cosSeamT(copies);
+  let c = Math.max(2, Math.round(copies ?? 3));
+  if (c % 2 === 0) c++;
+  const tile = pts.slice(0, pts.length - 1);
+  const extended = [];
+  for (let cc = 0; cc < c; cc++) for (const p of tile) extended.push(p);
+  extended.push(tile[0]);
+  return findSeamT(glkCoeffs(extended, k), tile[0], c);
 }
 
 // ---------------------------------------------------------------------------

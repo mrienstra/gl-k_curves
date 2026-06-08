@@ -1,4 +1,5 @@
 import { buildSVG } from "./glk-svg.mjs";
+import { computeAutoSeamT } from "./glk-closed.mjs";
 import { svgFileToSegments } from "./svg-path-import.mjs";
 import {
   state,
@@ -515,15 +516,25 @@ function bindClosedOptsModal() {
   const inSeamTAuto = document.getElementById("closedOptsSeamTAuto");
   const inSeamT     = document.getElementById("closedOptsSeamT");
   const seamTVal    = document.getElementById("closedOptsSeamTVal");
+  const autoVals    = document.getElementById("closedOptsSeamTAutoVals");
   let segIdx = null;
+  let autoSeamTs = null; // { k0, k1, k2 } — computed on modal open
 
   function updateSeamTDisplay() {
     if (inSeamTAuto.checked) {
       seamTVal.textContent = "auto";
       inSeamT.disabled = true;
+      if (autoSeamTs) {
+        autoVals.textContent =
+          `0: ${autoSeamTs.k0.toFixed(3)}  1: ${autoSeamTs.k1.toFixed(3)}  2: ${autoSeamTs.k2.toFixed(3)}`;
+        autoVals.style.display = "";
+      } else {
+        autoVals.style.display = "none";
+      }
     } else {
-      seamTVal.textContent = parseFloat(inSeamT.value).toFixed(2);
+      seamTVal.textContent = parseFloat(inSeamT.value).toFixed(3);
       inSeamT.disabled = false;
+      autoVals.style.display = "none";
     }
   }
 
@@ -534,7 +545,27 @@ function bindClosedOptsModal() {
     inFull.checked      = opts.showFull;
     const hasSeamT      = opts.seamT != null;
     inSeamTAuto.checked = !hasSeamT;
-    if (hasSeamT) inSeamT.value = opts.seamT;
+
+    // Compute auto seam T values for k=0,1,2
+    const pts = state.segments[segIdx];
+    if (pts && pts.length >= 3) {
+      const copies = parseInt(inCopies.value, 10) || 3;
+      autoSeamTs = {
+        k0: computeAutoSeamT(pts, copies, 0),
+        k1: computeAutoSeamT(pts, copies, 1),
+        k2: computeAutoSeamT(pts, copies, 2),
+      };
+    } else {
+      autoSeamTs = null;
+    }
+
+    // Pre-fill slider: use stored value if manual, else the k1 auto value
+    if (hasSeamT) {
+      inSeamT.value = opts.seamT;
+    } else if (autoSeamTs) {
+      inSeamT.value = autoSeamTs.k1;
+    }
+
     updateSeamTDisplay();
     modal.style.display = "flex";
   });
@@ -560,7 +591,12 @@ function bindClosedOptsModal() {
 
   inCopies.addEventListener("input", applyOpts);
   inFull.addEventListener("change", applyOpts);
-  inSeamTAuto.addEventListener("change", () => { updateSeamTDisplay(); applyOpts(); });
+  inSeamTAuto.addEventListener("change", () => {
+    // When switching auto → manual, pre-fill slider with k1 auto value
+    if (!inSeamTAuto.checked && autoSeamTs) inSeamT.value = autoSeamTs.k1;
+    updateSeamTDisplay();
+    applyOpts();
+  });
   inSeamT.addEventListener("input", () => { updateSeamTDisplay(); applyOpts(); });
 }
 
