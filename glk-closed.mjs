@@ -19,8 +19,13 @@
  *                                           sequence instead of just the middle copy
  */
 
-import { glkCoeffs } from './glk-curve.mjs';
-import { gleveal }   from './gleval.mjs';
+import { glkCoeffs }                 from './glk-curve.mjs';
+import { gleveal }                  from './gleval.mjs';
+import { applyMatrix }              from './glk-matrix.mjs';
+import { buildModifiedGLKMatrix,
+         applyTangentOperator }     from './glk-modified.mjs';
+import { buildGLKMatrixFractional } from './glk-fractional.mjs';
+import { glWeights }                from './legendre.mjs';
 
 /**
  * Sample a closed GL-k curve.
@@ -67,4 +72,77 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200) {
   // floor(copies/2) is the 0-indexed middle copy for any copies ≥ 2.
   const midCopy = Math.floor(copies / 2);
   return all.slice(midCopy * nSamples, (midCopy + 1) * nSamples + 1);
+}
+
+// ---------------------------------------------------------------------------
+// Generalized closed-curve sampler
+// ---------------------------------------------------------------------------
+
+/**
+ * Shared implementation for non-integer-GL-k closed-curve variants.
+ *
+ * Builds the extended sequence, applies matrixFn(n) to get an (n+1)×(n+1)
+ * coefficient matrix, evaluates the Legendre series at copies*nSamples points,
+ * and returns the middle-copy slice (same windowing as sampleGLKClosed).
+ *
+ * matrixFn receives the degree n of the *extended* sequence.  eta/alpha should
+ * be resolved inside matrixFn so they are based on the correct n.
+ */
+function _sampleClosedWithMatrix(pts, matrixFn, nSamples) {
+  const cfg = (typeof window !== 'undefined' ? window.closedCurve : null) ?? {};
+  const copies   = Math.max(2, Math.round(cfg.copies   ?? 3));
+  const showFull = cfg.showFull ?? false;
+
+  const tile = pts.slice(0, pts.length - 1);
+  const extended = [];
+  for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
+
+  const n = extended.length - 1;
+  const L = matrixFn(n);
+  const coeffs = applyMatrix(L, extended);
+
+  const M = copies * nSamples;
+  const all = [];
+  for (let i = 0; i < M; i++) {
+    const t = -Math.cos(Math.PI * i / (M - 1));
+    all.push(gleveal(coeffs, t));
+  }
+  if (showFull) return all;
+  const midCopy = Math.floor(copies / 2);
+  return all.slice(midCopy * nSamples, (midCopy + 1) * nSamples + 1);
+}
+
+/** Sample a closed fractional GL-k curve. */
+export function sampleGLKFractionalClosed(pts, k = 1, nSamples = 200) {
+  if (pts.length < 3) return [];
+  return _sampleClosedWithMatrix(pts, n => buildGLKMatrixFractional(n, k), nSamples);
+}
+
+/** Sample a closed modified GL-k curve (tangent-corrected). */
+export function sampleModifiedGLKClosed(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null, alpha = 1) {
+  if (pts.length < 3) return [];
+  return _sampleClosedWithMatrix(pts, n => {
+    let e1 = eta1, e2 = eta2;
+    if (e1 === null || e2 === null) {
+      const w0 = glWeights(n)[0];
+      if (e1 === null) e1 = 1 / w0;
+      if (e2 === null) e2 = 1 / w0;
+    }
+    return buildModifiedGLKMatrix(n, k, e1, e2, alpha);
+  }, nSamples);
+}
+
+/** Sample a closed modified fractional GL-k curve. */
+export function sampleModifiedGLKFractionalClosed(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null, alpha = 1) {
+  if (pts.length < 3) return [];
+  return _sampleClosedWithMatrix(pts, n => {
+    let e1 = eta1, e2 = eta2;
+    if (e1 === null || e2 === null) {
+      const w0 = glWeights(n)[0];
+      if (e1 === null) e1 = 1 / w0;
+      if (e2 === null) e2 = 1 / w0;
+    }
+    const Lf = buildGLKMatrixFractional(n, k);
+    return n >= 3 ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
+  }, nSamples);
 }

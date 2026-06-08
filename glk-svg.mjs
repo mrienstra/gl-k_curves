@@ -15,7 +15,6 @@
  */
 
 import { gleveal }                     from './gleval.mjs';
-import { glkCoeffs }                  from './glk-curve.mjs';
 import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
 import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified.mjs';
@@ -128,24 +127,34 @@ function buildChains(segs) {
 // ---------------------------------------------------------------------------
 
 /**
- * Build SVG path data for a single closed segment using the periodic-extension
- * approach (same algorithm as sampleGLKClosed).  Returns null if too few points.
- * Appends "Z" to close the path.
+ * Build SVG path data for a closed segment using periodic extension and a
+ * caller-supplied matrix factory.
+ *
+ * matrixFn(nExt) receives the degree of the *extended* sequence and must return
+ * an (nExt+1)×(nExt+1) matrix, or null to skip.  Appends "Z" to close the path.
  */
-function closedPathD(pts, k, copies, M) {
+function closedPathDWithMatrix(pts, matrixFn, copies, M) {
   const tile = pts.slice(0, pts.length - 1);  // drop trailing duplicate
   if (tile.length < 2) return null;
 
   const extended = [];
   for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
 
-  const coeffs = glkCoeffs(extended, k);
+  const nExt = extended.length - 1;
+  const L = matrixFn(nExt);
+  if (!L) return null;
+  const coeffs = applyMatrix(L, extended);
 
   const midCopy = Math.floor(copies / 2);
   const tStart  = -Math.cos(Math.PI * midCopy / copies);
   const tEnd    = -Math.cos(Math.PI * (midCopy + 1) / copies);
 
   return coeffsToSVGPath(coeffs, M, tStart, tEnd) + ' Z';
+}
+
+/** Closed-curve path for integer GL-k (convenience wrapper). */
+function closedPathD(pts, k, copies, M) {
+  return closedPathDWithMatrix(pts, nExt => buildGLKMatrix(nExt, k), copies, M);
 }
 
 // ---------------------------------------------------------------------------
@@ -292,10 +301,53 @@ export function buildSVG(segments, opts = {}) {
       const pts  = valid[chain[0]];
       const { segM } = segInfo(pts);
       const ds = s => s.length ? s.join(' ') : null;
-      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0',    'GL-0',                       gl0Color,    gl0Width,    ds(gl0Dash));
-      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1',    'GL-1',                       gl1Color,    gl1Width,    ds(gl1Dash));
-      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2',    'GL-2',                       gl2Color,    gl2Width,    ds(gl2Dash));
-      // mod GL-1 and fractional not yet implemented for closed curves
+      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0', 'GL-0', gl0Color, gl0Width, ds(gl0Dash));
+      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1', 'GL-1', gl1Color, gl1Width, ds(gl1Dash));
+      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2', 'GL-2', gl2Color, gl2Width, ds(gl2Dash));
+
+      if (showM1) {
+        const d = closedPathDWithMatrix(pts, nExt => {
+          let e1 = eta, e2 = eta;
+          if (e1 === null || e2 === null) {
+            const w0 = glWeights(nExt)[0];
+            if (e1 === null) e1 = 1 / w0;
+            if (e2 === null) e2 = 1 / w0;
+          }
+          return nExt >= 3 ? buildModifiedGLKMatrix(nExt, 1, e1, e2, alpha) : buildGLKMatrix(nExt, 1);
+        }, closedCopies, segM);
+        if (d) {
+          const da = modGl1Dash.length ? ` stroke-dasharray="${modGl1Dash.join(' ')}"` : '';
+          getGroup('mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`).paths.push(
+            `    <path d="${d}" stroke="${modGl1Color}" fill="none" stroke-width="${modGl1Width}"${da}/>`
+          );
+        }
+      }
+
+      if (showFrac) {
+        const isMod = showFracMod;
+        const title = isMod
+          ? `GL-k (fractional, mod)  k=${kStr}  η=${etaStr}  α=${alphaStr}`
+          : `GL-k (fractional)  k=${kStr}`;
+        const d = closedPathDWithMatrix(pts, nExt => {
+          const Lf = buildGLKMatrixFractional(nExt, kFrac);
+          if (isMod && nExt >= 3) {
+            let e1 = eta, e2 = eta;
+            if (e1 === null || e2 === null) {
+              const w0 = glWeights(nExt)[0];
+              if (e1 === null) e1 = 1 / w0;
+              if (e2 === null) e2 = 1 / w0;
+            }
+            return applyTangentOperator(nExt, Lf, e1, e2, alpha);
+          }
+          return Lf;
+        }, closedCopies, segM);
+        if (d) {
+          const da = fracDash.length ? ` stroke-dasharray="${fracDash.join(' ')}"` : '';
+          getGroup(`frac-k${kStr}`, title).paths.push(
+            `    <path d="${d}" stroke="${fracColor}" fill="none" stroke-width="${fracWidth}"${da}/>`
+          );
+        }
+      }
     } else {
       if (showGL0)
         addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 0),

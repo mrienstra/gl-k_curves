@@ -1,5 +1,10 @@
 import { sampleGLK } from "./glk-curve.mjs";
-import { sampleGLKClosed } from "./glk-closed.mjs";
+import {
+  sampleGLKClosed,
+  sampleGLKFractionalClosed,
+  sampleModifiedGLKClosed,
+  sampleModifiedGLKFractionalClosed,
+} from "./glk-closed.mjs";
 import { sampleModifiedGLK } from "./glk-modified.mjs";
 import {
   sampleGLKFractional,
@@ -131,7 +136,7 @@ export function draw() {
     if (document.getElementById("chkPoly").checked) drawPolygon(pts, isClosed);
     try {
       if (isClosed) {
-        // Closed curve: use periodic extension (GL-0/1/2 only for now).
+        // Closed curve: use periodic extension.
         // Don't ctx.closePath() when showFull — the extended sequence doesn't close.
         const closePath = !(window.closedCurve?.showFull ?? false);
         if (document.getElementById("chk0").checked)
@@ -140,6 +145,15 @@ export function draw() {
           drawCurve(sampleGLKClosed(pts, 1, N), curveStyles.gl1.color, curveStyles.gl1.width, curveStyles.gl1.dash, closePath);
         if (document.getElementById("chk2").checked && pts.length >= 3)
           drawCurve(sampleGLKClosed(pts, 2, N), curveStyles.gl2.color, curveStyles.gl2.width, curveStyles.gl2.dash, closePath);
+        if (document.getElementById("chkFrac").checked && pts.length >= 3) {
+          const fracSampler =
+            document.getElementById("chkFracMod").checked
+              ? sampleModifiedGLKFractionalClosed(pts, kFrac, N, eta, eta, alpha)
+              : sampleGLKFractionalClosed(pts, kFrac, N);
+          drawCurve(fracSampler, curveStyles.frac.color, curveStyles.frac.width, curveStyles.frac.dash, closePath);
+        }
+        if (document.getElementById("chkM1").checked && pts.length >= 3)
+          drawCurve(sampleModifiedGLKClosed(pts, 1, N, eta, eta, alpha), curveStyles.modGl1.color, curveStyles.modGl1.width, curveStyles.modGl1.dash, closePath);
       } else {
         if (document.getElementById("chk0").checked)
           drawCurve(sampleGLK(pts, 0, N), curveStyles.gl0.color, curveStyles.gl0.width, curveStyles.gl0.dash);
