@@ -173,6 +173,29 @@ export function draw() {
     ctx.setLineDash([]);
   }
 
+  // Update split / join button label and enabled state
+  const btn = document.getElementById("btnSplit");
+  const selArr = [...selection].map((k) => {
+    const [s, i] = k.split(":").map(Number);
+    return { s, i };
+  });
+  if (selArr.length === 1) {
+    const { s, i } = selArr[0];
+    btn.textContent = "Split at selected";
+    btn.disabled = i === 0 || i === segments[s].length - 1;
+  } else if (selArr.length === 2) {
+    const [{ s: s1, i: i1 }, { s: s2, i: i2 }] = selArr;
+    const pts1 = segments[s1], pts2 = segments[s2];
+    const ep1 = i1 === 0 || i1 === pts1.length - 1;
+    const ep2 = i2 === 0 || i2 === pts2.length - 1;
+    const dist = Math.hypot(pts1[i1][0] - pts2[i2][0], pts1[i1][1] - pts2[i2][1]);
+    btn.textContent = "Join selected";
+    btn.disabled = s1 === s2 || !ep1 || !ep2 || dist >= 10;
+  } else {
+    btn.textContent = "Split at selected";
+    btn.disabled = true;
+  }
+
   document.getElementById("segInfo").textContent =
     selection.size > 0
       ? `${selection.size} pts — Seg ${activeSeg + 1}/${segments.length}`

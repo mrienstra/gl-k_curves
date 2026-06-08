@@ -190,15 +190,45 @@ function bindCanvasEvents(canvas) {
 // ── sidebar buttons ──────────────────────────────────────────────────────────
 function bindButtonEvents(canvas) {
   document.getElementById("btnSplit").addEventListener("click", () => {
-    if (state.selection.size !== 1) return;
-    const [key] = state.selection;
-    const [s, i] = key.split(":").map(Number);
-    const pts = state.segments[s];
-    if (i === 0 || i === pts.length - 1) return;
-    state.segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
-    state.activeSeg = s + 1;
-    clearSel();
-    draw();
+    const selArr = [...state.selection].map((k) => {
+      const [s, i] = k.split(":").map(Number);
+      return { s, i };
+    });
+
+    if (selArr.length === 1) {
+      // Split
+      const { s, i } = selArr[0];
+      const pts = state.segments[s];
+      if (i === 0 || i === pts.length - 1) return;
+      state.segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
+      state.activeSeg = s + 1;
+      clearSel();
+      draw();
+    } else if (selArr.length === 2) {
+      // Join — orient each segment so the selected endpoint is the tail of a / head of b
+      const [{ s: s1, i: i1 }, { s: s2, i: i2 }] = selArr;
+      if (s1 === s2) return;
+      const pts1 = state.segments[s1], pts2 = state.segments[s2];
+      if (!(i1 === 0 || i1 === pts1.length - 1)) return;
+      if (!(i2 === 0 || i2 === pts2.length - 1)) return;
+
+      const a = i1 === 0 ? pts1.slice().reverse() : pts1.slice(); // selected pt → tail
+      const b = i2 === pts2.length - 1 ? pts2.slice().reverse() : pts2.slice(); // selected pt → head
+
+      // Merge: average the two touching endpoints into one
+      const jx = (a[a.length - 1][0] + b[0][0]) / 2;
+      const jy = (a[a.length - 1][1] + b[0][1]) / 2;
+      a[a.length - 1] = [jx, jy];
+      const merged = [...a, ...b.slice(1)];
+
+      // Splice out both segments (higher index first to preserve lower index)
+      const [hi, lo] = s1 > s2 ? [s1, s2] : [s2, s1];
+      state.segments.splice(hi, 1);
+      state.segments.splice(lo, 1, merged);
+      state.activeSeg = lo;
+      clearSel();
+      draw();
+    }
   });
 
   document.getElementById("btnNewSeg").addEventListener("click", () => {
