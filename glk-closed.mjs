@@ -25,22 +25,30 @@ import { gleveal }   from './gleval.mjs';
 /**
  * Sample a closed GL-k curve.
  *
- * @param {Array}  pts      - n control points (closed polygon, first ≠ last)
+ * @param {Array}  pts      - control points; first and last must be the same point
+ *                            (the coincident seam point produced by "Close segment")
  * @param {number} k        - GL-k order (0, 1, 2, …)
  * @param {number} nSamples - number of output samples (for the middle copy)
  * @returns {Array} approximately-closed polyline (first ≈ last point)
  */
 export function sampleGLKClosed(pts, k = 1, nSamples = 200) {
-  const n = pts.length;
-  if (n < 2) return [];
+  if (pts.length < 3) return [];
 
   const cfg = (typeof window !== 'undefined' ? window.closedCurve : null) ?? {};
   const copies   = Math.max(2, Math.round(cfg.copies   ?? 3));
   const showFull = cfg.showFull ?? false;
 
-  // Tile `copies` copies of the control polygon
+  // Drop the trailing duplicate endpoint before tiling.
+  // pts = [p0, p1, …, p_{n-2}, p0]; the fundamental period is [p0, …, p_{n-2}].
+  // Without this, consecutive copies would share a doubled seam point:
+  //   …p_{n-2}, p0, p0, p1, …   ← wrong
+  // With it:
+  //   …p_{n-2}, p0, p1, …       ← correct
+  const tile = pts.slice(0, pts.length - 1);
+
+  // Tile `copies` copies of the fundamental period
   const extended = [];
-  for (let c = 0; c < copies; c++) for (const p of pts) extended.push(p);
+  for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
 
   // GL-k Legendre coefficients for the extended sequence
   const coeffs = glkCoeffs(extended, k);
