@@ -23,7 +23,7 @@ import {
   applyStyles,
   collectVisibility,
   applyVisibility,
-} from "./editor-styles.mjs";
+} from "./editor-styles";
 
 // Returns { s, i, px, py } for the closest polyline edge within threshold,
 // or null if none / ambiguous (two edges within ambiguityMargin of each other).
