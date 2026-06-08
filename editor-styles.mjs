@@ -4,7 +4,7 @@
  */
 
 import { curveStyles } from "./editor-state";
-import { draw } from "./editor-draw.mjs";
+import { draw } from "./editor-draw";
 
 // ── defaults ──────────────────────────────────────────────────────────────────
 

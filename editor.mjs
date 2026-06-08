@@ -1,4 +1,4 @@
-import { initDraw, draw } from "./editor-draw.mjs";
+import { initDraw, draw } from "./editor-draw";
 import { setupInteraction } from "./editor-interact.mjs";
 
 const canvas = document.getElementById("c");
