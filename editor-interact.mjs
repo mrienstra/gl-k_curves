@@ -509,16 +509,33 @@ function bindKeyEvents() {
 
 // ── closed-path options modal ─────────────────────────────────────────────────
 function bindClosedOptsModal() {
-  const modal    = document.getElementById("closedOptsModal");
-  const inCopies = document.getElementById("closedOptsCopies");
-  const inFull   = document.getElementById("closedOptsShowFull");
+  const modal       = document.getElementById("closedOptsModal");
+  const inCopies    = document.getElementById("closedOptsCopies");
+  const inFull      = document.getElementById("closedOptsShowFull");
+  const inSeamTAuto = document.getElementById("closedOptsSeamTAuto");
+  const inSeamT     = document.getElementById("closedOptsSeamT");
+  const seamTVal    = document.getElementById("closedOptsSeamTVal");
   let segIdx = null;
+
+  function updateSeamTDisplay() {
+    if (inSeamTAuto.checked) {
+      seamTVal.textContent = "auto";
+      inSeamT.disabled = true;
+    } else {
+      seamTVal.textContent = parseFloat(inSeamT.value).toFixed(2);
+      inSeamT.disabled = false;
+    }
+  }
 
   document.getElementById("btnClosedOpts").addEventListener("click", () => {
     segIdx = state.activeSeg;
     const opts = getClosedOpts(segIdx);
-    inCopies.value   = opts.copies;
-    inFull.checked   = opts.showFull;
+    inCopies.value      = opts.copies;
+    inFull.checked      = opts.showFull;
+    const hasSeamT      = opts.seamT != null;
+    inSeamTAuto.checked = !hasSeamT;
+    if (hasSeamT) inSeamT.value = opts.seamT;
+    updateSeamTDisplay();
     modal.style.display = "flex";
   });
 
@@ -536,12 +553,15 @@ function bindClosedOptsModal() {
     if (!isFinite(copies) || copies < 3) copies = 3;
     if (copies % 2 === 0) copies++;
     inCopies.value = copies; // snap display back to valid odd value
-    state.closedOpts.set(segIdx, { copies, showFull: inFull.checked });
+    const seamT = inSeamTAuto.checked ? null : parseFloat(inSeamT.value);
+    state.closedOpts.set(segIdx, { copies, showFull: inFull.checked, seamT });
     draw();
   }
 
   inCopies.addEventListener("input", applyOpts);
   inFull.addEventListener("change", applyOpts);
+  inSeamTAuto.addEventListener("change", () => { updateSeamTDisplay(); applyOpts(); });
+  inSeamT.addEventListener("input", () => { updateSeamTDisplay(); applyOpts(); });
 }
 
 // ── entry point ──────────────────────────────────────────────────────────────

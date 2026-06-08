@@ -45,7 +45,7 @@ export const clearSel = () => state.selection.clear();
 export function getClosedOpts(s) {
   const global = (typeof window !== 'undefined' ? window.closedCurve : null) ?? {};
   const stored = state.closedOpts.get(s) ?? {};
-  return { copies: global.copies ?? 3, showFull: global.showFull ?? false, ...stored };
+  return { copies: global.copies ?? 3, showFull: global.showFull ?? false, seamT: global.seamT ?? null, ...stored };
 }
 
 // ── curve styles ─────────────────────────────────────────────────────────────

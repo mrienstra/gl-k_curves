@@ -19,7 +19,8 @@ import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
 import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified.mjs';
 import { buildGLKMatrixFractional }    from './glk-fractional.mjs';
-import { glWeights, glNodes }          from './legendre.mjs';
+import { glWeights }                   from './legendre.mjs';
+import { findSeamT, cosSeamT }         from './glk-closed.mjs';
 
 // ---------------------------------------------------------------------------
 // Legendre series differentiation
@@ -133,7 +134,7 @@ function buildChains(segs) {
  * matrixFn(nExt) receives the degree of the *extended* sequence and must return
  * an (nExt+1)×(nExt+1) matrix, or null to skip.  Appends "Z" to close the path.
  */
-function closedPathDWithMatrix(pts, matrixFn, copies, M) {
+function closedPathDWithMatrix(pts, matrixFn, copies, M, seamTOverride = null) {
   if (copies % 2 === 0) copies++; // must be odd so the middle copy has equal context on both sides
   const tile = pts.slice(0, pts.length - 1);  // drop trailing duplicate
   if (tile.length < 2) return null;
@@ -147,17 +148,16 @@ function closedPathDWithMatrix(pts, matrixFn, copies, M) {
   if (!L) return null;
   const coeffs = applyMatrix(L, extended);
 
-  const midCopy = Math.floor(copies / 2);
-  const nodes = glNodes(nExt);
-  const tStart = nodes[midCopy * tile.length - 1];
-  const tEnd   = nodes[(midCopy + 1) * tile.length - 1];
+  const seamT = seamTOverride != null
+    ? seamTOverride
+    : findSeamT(coeffs, tile[0], copies);
 
-  return coeffsToSVGPath(coeffs, M, tStart, tEnd) + ' Z';
+  return coeffsToSVGPath(coeffs, M, -seamT, seamT) + ' Z';
 }
 
 /** Closed-curve path for integer GL-k (convenience wrapper). */
-function closedPathD(pts, k, copies, M) {
-  return closedPathDWithMatrix(pts, nExt => buildGLKMatrix(nExt, k), copies, M);
+function closedPathD(pts, k, copies, M, seamT = null) {
+  return closedPathDWithMatrix(pts, nExt => buildGLKMatrix(nExt, k), copies, M, seamT);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,17 +226,19 @@ export function buildSVG(segments, opts = {}) {
       pts: s,
       isClosed: closedSet.has(i),
       copies: closedOptsMap?.get(i)?.copies ?? closedCopies,
+      seamT: closedOptsMap?.get(i)?.seamT ?? null,
     }))
     .filter(({ pts }) => pts.length >= 2);
   const valid            = validWithMeta.map(x => x.pts);
   const closedFlags      = validWithMeta.map(x => x.isClosed);
   const closedCopiesList = validWithMeta.map(x => x.copies);
+  const closedSeamTList  = validWithMeta.map(x => x.seamT);
   const chains = buildChains(valid);
 
   // Helper: emit a closed-curve <path> for one GL-k order.
-  function addClosedPath(pts, k, minTile, segM, groupId, title, stroke, sw, dashStr, copies) {
+  function addClosedPath(pts, k, minTile, segM, groupId, title, stroke, sw, dashStr, copies, seamT = null) {
     if (pts.length - 1 < minTile) return;
-    const d = closedPathD(pts, k, copies, segM);
+    const d = closedPathD(pts, k, copies, segM, seamT);
     if (!d) return;
     const da = dashStr ? ` stroke-dasharray="${dashStr}"` : '';
     getGroup(groupId, title).paths.push(
@@ -307,13 +309,14 @@ export function buildSVG(segments, opts = {}) {
     }
 
     if (isSingleClosed) {
-      const pts     = valid[chain[0]];
+      const pts       = valid[chain[0]];
       const seqCopies = closedCopiesList[chain[0]];
+      const seqSeamT  = closedSeamTList[chain[0]];
       const { segM } = segInfo(pts);
       const ds = s => s.length ? s.join(' ') : null;
-      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0', 'GL-0', gl0Color, gl0Width, ds(gl0Dash), seqCopies);
-      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1', 'GL-1', gl1Color, gl1Width, ds(gl1Dash), seqCopies);
-      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2', 'GL-2', gl2Color, gl2Width, ds(gl2Dash), seqCopies);
+      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0', 'GL-0', gl0Color, gl0Width, ds(gl0Dash), seqCopies, seqSeamT);
+      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1', 'GL-1', gl1Color, gl1Width, ds(gl1Dash), seqCopies, seqSeamT);
+      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2', 'GL-2', gl2Color, gl2Width, ds(gl2Dash), seqCopies, seqSeamT);
 
       if (showM1) {
         const d = closedPathDWithMatrix(pts, nExt => {
@@ -324,7 +327,7 @@ export function buildSVG(segments, opts = {}) {
             if (e2 === null) e2 = 1 / w0;
           }
           return nExt >= 3 ? buildModifiedGLKMatrix(nExt, 1, e1, e2, alpha) : buildGLKMatrix(nExt, 1);
-        }, seqCopies, segM);
+        }, seqCopies, segM, seqSeamT);
         if (d) {
           const da = modGl1Dash.length ? ` stroke-dasharray="${modGl1Dash.join(' ')}"` : '';
           getGroup('mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`).paths.push(
@@ -350,7 +353,7 @@ export function buildSVG(segments, opts = {}) {
             return applyTangentOperator(nExt, Lf, e1, e2, alpha);
           }
           return Lf;
-        }, seqCopies, segM);
+        }, seqCopies, segM, seqSeamT);
         if (d) {
           const da = fracDash.length ? ` stroke-dasharray="${fracDash.join(' ')}"` : '';
           getGroup(`frac-k${kStr}`, title).paths.push(

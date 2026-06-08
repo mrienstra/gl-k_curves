@@ -17,6 +17,14 @@
  *   window.closedCurve.copies   (default 3)  — number of times to tile the polygon
  *   window.closedCurve.showFull (default false) — if true, render the entire extended
  *                                           sequence instead of just the middle copy
+ *   window.closedCurve.seamT    (default null)  — override the half-width of the
+ *                                           sampled parameter range (null = auto)
+ *
+ * Seam T: the sampled range is [-seamT, +seamT] (symmetric around 0).
+ * Auto-compute finds the t > 0 where the curve is closest to the seam
+ * point p0, which gives near-zero visual gap for any GL-k order.
+ * The equal-cosine-spacing default would be -cos(π*(midCopy+1)/copies),
+ * e.g. 0.5 for copies=3; but the true optimum is a bit smaller for each k.
  */
 
 import { glkCoeffs } from "./glk-curve.mjs";
@@ -27,7 +35,71 @@ import {
   applyTangentOperator,
 } from "./glk-modified.mjs";
 import { buildGLKMatrixFractional } from "./glk-fractional.mjs";
-import { glWeights, glNodes } from "./legendre.mjs";
+import { glWeights } from "./legendre.mjs";
+
+// ---------------------------------------------------------------------------
+// Seam-T helpers (cosSeamT and findSeamT also exported for glk-svg.mjs)
+// ---------------------------------------------------------------------------
+
+/**
+ * Equal-cosine-spacing seam half-width — the "naive" value used before
+ * this investigation.  For copies=3 it equals 0.5; decreases with copies.
+ */
+export function cosSeamT(copies) {
+  const midCopy = Math.floor(copies / 2);
+  return -Math.cos(Math.PI * (midCopy + 1) / copies);
+}
+
+/**
+ * Find the seam half-width: the t > 0 in [tLo, tHi] where the curve is
+ * closest to the seam point p0.  For symmetric tilings this also minimises
+ * the gap between curve(-t) and curve(+t).
+ *
+ * Uses a 60-point scan followed by golden-section refinement.
+ */
+export function findSeamT(coeffs, p0, copies) {
+  const tCos  = cosSeamT(copies);
+  const tLo   = Math.max(0.05, tCos - 0.35);
+  const tHi   = tCos + 0.15;
+  const SCAN  = 60;
+
+  let bestT = tCos, bestD = Infinity;
+  for (let i = 0; i <= SCAN; i++) {
+    const t  = tLo + (tHi - tLo) * i / SCAN;
+    const pt = gleveal(coeffs, t);
+    const d  = Math.hypot(pt[0] - p0[0], pt[1] - p0[1]);
+    if (d < bestD) { bestD = d; bestT = t; }
+  }
+
+  // Golden-section refinement inside a bracket around bestT
+  const step = (tHi - tLo) / SCAN;
+  let lo = Math.max(tLo, bestT - step * 1.5);
+  let hi = Math.min(tHi, bestT + step * 1.5);
+  const GR = 0.6180339887;
+  for (let iter = 0; iter < 40; iter++) {
+    const m1 = hi - GR * (hi - lo);
+    const m2 = lo + GR * (hi - lo);
+    const pt1 = gleveal(coeffs, m1), pt2 = gleveal(coeffs, m2);
+    const d1 = Math.hypot(pt1[0] - p0[0], pt1[1] - p0[1]);
+    const d2 = Math.hypot(pt2[0] - p0[0], pt2[1] - p0[1]);
+    if (d1 < d2) hi = m2; else lo = m1;
+  }
+  return (lo + hi) / 2;
+}
+
+/** Sample `nSamples+1` points cosine-spaced over [-seamT, +seamT]. */
+function sampleSymmetric(coeffs, seamT, nSamples) {
+  const out = [];
+  for (let i = 0; i <= nSamples; i++) {
+    const t = seamT * Math.cos(Math.PI * (nSamples - i) / nSamples);
+    out.push(gleveal(coeffs, t));
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 /**
  * Sample a closed GL-k curve.
@@ -36,6 +108,7 @@ import { glWeights, glNodes } from "./legendre.mjs";
  *                            (the coincident seam point produced by "Close segment")
  * @param {number} k        - GL-k order (0, 1, 2, …)
  * @param {number} nSamples - number of output samples (for the middle copy)
+ * @param {object} opts     - optional per-segment config (overrides window.closedCurve)
  * @returns {Array} approximately-closed polyline (first ≈ last point)
  */
 export function sampleGLKClosed(pts, k = 1, nSamples = 200, opts = null) {
@@ -47,20 +120,12 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200, opts = null) {
   const showFull = cfg.showFull ?? false;
 
   // Drop the trailing duplicate endpoint before tiling.
-  // pts = [p0, p1, …, p_{n-2}, p0]; the fundamental period is [p0, …, p_{n-2}].
-  // Without this, consecutive copies would share a doubled seam point:
-  //   …p_{n-2}, p0, p0, p1, …   ← wrong
-  // With it:
-  //   …p_{n-2}, p0, p1, …       ← correct
   const tile = pts.slice(0, pts.length - 1);
 
-  // Tile `copies` copies of the fundamental period, then close with p0 again so the
-  // middle copy spans exactly one period: from the (midCopy)th p0 to the (midCopy+1)th p0.
   const extended = [];
   for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
   extended.push(tile[0]);
 
-  // GL-k Legendre coefficients for the extended sequence
   const coeffs = glkCoeffs(extended, k);
 
   if (showFull) {
@@ -73,22 +138,11 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200, opts = null) {
     return all;
   }
 
-  // Use the GL nodes of the extended sequence to locate the exact period
-  // boundaries.  For GL-0 the curve passes through the seam point (p0) exactly
-  // at these nodes; for GL-k they are a close proxy.
-  // n = copies * tile.length; seam is at control-point index midCopy*tile.length.
-  const n = extended.length - 1;
-  const nodes = glNodes(n);
-  const midCopy = Math.floor(copies / 2);
-  const tStart = nodes[midCopy * tile.length - 1];
-  const tEnd   = nodes[(midCopy + 1) * tile.length - 1];
+  const seamT = cfg.seamT != null
+    ? cfg.seamT
+    : findSeamT(coeffs, tile[0], copies);
 
-  const out = [];
-  const cMid = (tStart + tEnd) / 2, cAmp = (tEnd - tStart) / 2;
-  for (let i = 0; i <= nSamples; i++) {
-    out.push(gleveal(coeffs, cMid - cAmp * Math.cos(Math.PI * i / nSamples)));
-  }
-  return out;
+  return sampleSymmetric(coeffs, seamT, nSamples);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,13 +151,6 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200, opts = null) {
 
 /**
  * Shared implementation for non-integer-GL-k closed-curve variants.
- *
- * Builds the extended sequence, applies matrixFn(n) to get an (n+1)×(n+1)
- * coefficient matrix, evaluates the Legendre series at copies*nSamples points,
- * and returns the middle-copy slice (same windowing as sampleGLKClosed).
- *
- * matrixFn receives the degree n of the *extended* sequence.  eta/alpha should
- * be resolved inside matrixFn so they are based on the correct n.
  */
 function _sampleClosedWithMatrix(pts, matrixFn, nSamples, opts = null) {
   const cfg = opts ?? (typeof window !== "undefined" ? window.closedCurve : null) ?? {};
@@ -130,17 +177,11 @@ function _sampleClosedWithMatrix(pts, matrixFn, nSamples, opts = null) {
     return all;
   }
 
-  const nodes = glNodes(n);
-  const midCopy = Math.floor(copies / 2);
-  const tStart = nodes[midCopy * tile.length - 1];
-  const tEnd   = nodes[(midCopy + 1) * tile.length - 1];
+  const seamT = cfg.seamT != null
+    ? cfg.seamT
+    : findSeamT(coeffs, tile[0], copies);
 
-  const out = [];
-  const cMid = (tStart + tEnd) / 2, cAmp = (tEnd - tStart) / 2;
-  for (let i = 0; i <= nSamples; i++) {
-    out.push(gleveal(coeffs, cMid - cAmp * Math.cos(Math.PI * i / nSamples)));
-  }
-  return out;
+  return sampleSymmetric(coeffs, seamT, nSamples);
 }
 
 /** Sample a closed fractional GL-k curve. */
