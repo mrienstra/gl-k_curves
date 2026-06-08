@@ -93,6 +93,8 @@ function updateSVGPreview() {
     eta: rawEta === 0 ? null : rawEta,
     alpha: parseFloat(document.getElementById("sldAlpha").value),
     styles: { gl0: curveStyles.gl0, gl1: curveStyles.gl1, gl2: curveStyles.gl2, modGl1: curveStyles.modGl1, frac: curveStyles.frac },
+    closedSet: state.closed,
+    closedCopies: window.closedCurve?.copies ?? 3,
   });
   previewEl.innerHTML = svg;
   const svgEl = previewEl.querySelector("svg");

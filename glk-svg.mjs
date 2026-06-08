@@ -15,6 +15,7 @@
  */
 
 import { gleveal }                     from './gleval.mjs';
+import { glkCoeffs }                  from './glk-curve.mjs';
 import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
 import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified.mjs';
@@ -64,17 +65,22 @@ export function legDerivCoeffs(coeffs) {
  *
  * @param {Array}  coeffs - array of [x, y] Legendre coefficients
  * @param {number} M      - number of Hermite cubic segments (default 8)
+ * @param {number} tStart - start of parameter range (default -1)
+ * @param {number} tEnd   - end of parameter range (default 1)
  * @returns {string}      - SVG path data "M x,y C x,y x,y x,y C …"
  */
-export function coeffsToSVGPath(coeffs, M = 8) {
+export function coeffsToSVGPath(coeffs, M = 8, tStart = -1, tEnd = 1) {
   const dc = legDerivCoeffs(coeffs);
   const zero = [0, 0];
   const deriv = (t) => dc.length > 0 ? gleveal(dc, t) : zero;
+  // Cosine spacing within [tStart, tEnd]
+  const mid = (tStart + tEnd) / 2;
+  const amp = (tEnd - tStart) / 2;
 
   let d = '';
   for (let m = 0; m < M; m++) {
-    const a = -Math.cos(Math.PI * m / M);
-    const b = -Math.cos(Math.PI * (m + 1) / M);
+    const a = mid - amp * Math.cos(Math.PI * m / M);
+    const b = mid - amp * Math.cos(Math.PI * (m + 1) / M);
     const h = b - a;
 
     const p0  = gleveal(coeffs, a);
@@ -118,6 +124,31 @@ function buildChains(segs) {
 }
 
 // ---------------------------------------------------------------------------
+// Closed-curve SVG path
+// ---------------------------------------------------------------------------
+
+/**
+ * Build SVG path data for a single closed segment using the periodic-extension
+ * approach (same algorithm as sampleGLKClosed).  Returns null if too few points.
+ * Appends "Z" to close the path.
+ */
+function closedPathD(pts, k, copies, M) {
+  const tile = pts.slice(0, pts.length - 1);  // drop trailing duplicate
+  if (tile.length < 2) return null;
+
+  const extended = [];
+  for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
+
+  const coeffs = glkCoeffs(extended, k);
+
+  const midCopy = Math.floor(copies / 2);
+  const tStart  = -Math.cos(Math.PI * midCopy / copies);
+  const tEnd    = -Math.cos(Math.PI * (midCopy + 1) / copies);
+
+  return coeffsToSVGPath(coeffs, M, tStart, tEnd) + ' Z';
+}
+
+// ---------------------------------------------------------------------------
 // Full SVG document builder
 // ---------------------------------------------------------------------------
 
@@ -151,6 +182,8 @@ export function buildSVG(segments, opts = {}) {
     kFrac = 1, eta = null, alpha = 1,
     M = 8,
     styles = {},
+    closedSet    = new Set(), // Set of segment indices (into `segments`) that are closed
+    closedCopies = 3,         // tiling copies for closed-curve extension
   } = opts;
 
   const { color: gl0Color = '#f97',  width: gl0Width = 2,   dash: gl0Dash    = []     } = styles.gl0    ?? {};
@@ -174,9 +207,24 @@ export function buildSVG(segments, opts = {}) {
     return g;
   }
 
-  // Work only with valid segments (≥2 points)
-  const valid = segments.filter(s => s.length >= 2);
+  // Work only with valid segments (≥2 points); track which are closed.
+  const validWithMeta = segments
+    .map((s, i) => ({ pts: s, isClosed: closedSet.has(i) }))
+    .filter(({ pts }) => pts.length >= 2);
+  const valid       = validWithMeta.map(x => x.pts);
+  const closedFlags = validWithMeta.map(x => x.isClosed);
   const chains = buildChains(valid);
+
+  // Helper: emit a closed-curve <path> for one GL-k order.
+  function addClosedPath(pts, k, minTile, segM, groupId, title, stroke, sw, dashStr) {
+    if (pts.length - 1 < minTile) return;
+    const d = closedPathD(pts, k, closedCopies, segM);
+    if (!d) return;
+    const da = dashStr ? ` stroke-dasharray="${dashStr}"` : '';
+    getGroup(groupId, title).paths.push(
+      `    <path d="${d}" stroke="${stroke}" fill="none" stroke-width="${sw}"${da}/>`
+    );
+  }
 
   // Per-segment helper: resolve eta and segM
   function segInfo(pts) {
@@ -219,46 +267,65 @@ export function buildSVG(segments, opts = {}) {
   }
 
   for (const chain of chains) {
+    const isSingleClosed = chain.length === 1 && closedFlags[chain[0]];
+
     if (showPoly) {
-      // Polygon: one polyline per segment (dashed lines between separate segments
-      // would be misleading, so keep them independent).
       for (const si of chain) {
-        const pts   = valid[si];
-        const ptStr = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-        getGroup('polygon', 'Control polygon').paths.push(
-          `    <polyline points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`
-        );
+        const pts = valid[si];
+        if (isSingleClosed) {
+          // Use <polygon> so the dashed outline closes; drop the trailing duplicate.
+          const tile   = pts.slice(0, pts.length - 1);
+          const ptStr  = tile.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+          getGroup('polygon', 'Control polygon').paths.push(
+            `    <polygon points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`
+          );
+        } else {
+          const ptStr = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+          getGroup('polygon', 'Control polygon').paths.push(
+            `    <polyline points="${ptStr}" stroke="#555" fill="none" stroke-width="1" stroke-dasharray="4 4"/>`
+          );
+        }
       }
     }
 
-    if (showGL0)
-      addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 0),
-        'gl-0', 'GL-0', gl0Color, gl0Width,
-        gl0Dash.length ? gl0Dash.join(' ') : null);
-    if (showGL1)
-      addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 1),
-        'gl-1', 'GL-1', gl1Color, gl1Width,
-        gl1Dash.length ? gl1Dash.join(' ') : null);
-    if (showGL2)
-      addChainPath(chain, (pts, {n}) => n >= 2 ? buildGLKMatrix(n, 2) : null,
-        'gl-2', 'GL-2', gl2Color, gl2Width,
-        gl2Dash.length ? gl2Dash.join(' ') : null);
+    if (isSingleClosed) {
+      const pts  = valid[chain[0]];
+      const { segM } = segInfo(pts);
+      const ds = s => s.length ? s.join(' ') : null;
+      if (showGL0) addClosedPath(pts, 0, 2, segM, 'gl-0',    'GL-0',                       gl0Color,    gl0Width,    ds(gl0Dash));
+      if (showGL1) addClosedPath(pts, 1, 2, segM, 'gl-1',    'GL-1',                       gl1Color,    gl1Width,    ds(gl1Dash));
+      if (showGL2) addClosedPath(pts, 2, 2, segM, 'gl-2',    'GL-2',                       gl2Color,    gl2Width,    ds(gl2Dash));
+      // mod GL-1 and fractional not yet implemented for closed curves
+    } else {
+      if (showGL0)
+        addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 0),
+          'gl-0', 'GL-0', gl0Color, gl0Width,
+          gl0Dash.length ? gl0Dash.join(' ') : null);
+      if (showGL1)
+        addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 1),
+          'gl-1', 'GL-1', gl1Color, gl1Width,
+          gl1Dash.length ? gl1Dash.join(' ') : null);
+      if (showGL2)
+        addChainPath(chain, (pts, {n}) => n >= 2 ? buildGLKMatrix(n, 2) : null,
+          'gl-2', 'GL-2', gl2Color, gl2Width,
+          gl2Dash.length ? gl2Dash.join(' ') : null);
 
-    if (showM1)
-      addChainPath(chain, (pts, {n, e1, e2}) => n >= 3 ? buildModifiedGLKMatrix(n, 1, e1, e2, alpha) : null,
-        'mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`, modGl1Color, modGl1Width,
-        modGl1Dash.length ? modGl1Dash.join(' ') : null);
+      if (showM1)
+        addChainPath(chain, (pts, {n, e1, e2}) => n >= 3 ? buildModifiedGLKMatrix(n, 1, e1, e2, alpha) : null,
+          'mod-gl-1', `mod GL-1  η=${etaStr}  α=${alphaStr}`, modGl1Color, modGl1Width,
+          modGl1Dash.length ? modGl1Dash.join(' ') : null);
 
-    if (showFrac) {
-      const isMod  = showFracMod;
-      const title  = isMod
-        ? `GL-k (fractional, mod)  k=${kStr}  η=${etaStr}  α=${alphaStr}`
-        : `GL-k (fractional)  k=${kStr}`;
-      addChainPath(chain, (pts, {n, e1, e2}) => {
-        const Lf = buildGLKMatrixFractional(n, kFrac);
-        return (isMod && n >= 3) ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
-      }, `frac-k${kStr}`, title, fracColor, fracWidth,
-        fracDash.length ? fracDash.join(' ') : null);
+      if (showFrac) {
+        const isMod  = showFracMod;
+        const title  = isMod
+          ? `GL-k (fractional, mod)  k=${kStr}  η=${etaStr}  α=${alphaStr}`
+          : `GL-k (fractional)  k=${kStr}`;
+        addChainPath(chain, (pts, {n, e1, e2}) => {
+          const Lf = buildGLKMatrixFractional(n, kFrac);
+          return (isMod && n >= 3) ? applyTangentOperator(n, Lf, e1, e2, alpha) : Lf;
+        }, `frac-k${kStr}`, title, fracColor, fracWidth,
+          fracDash.length ? fracDash.join(' ') : null);
+      }
     }
   }
 

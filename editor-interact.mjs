@@ -434,6 +434,8 @@ function bindButtonEvents(canvas) {
       eta: rawEta === 0 ? null : rawEta,
       alpha: parseFloat(document.getElementById("sldAlpha").value),
       styles: collectStyles() ?? {},
+      closedSet: state.closed,
+      closedCopies: window.closedCurve?.copies ?? 3,
     });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
