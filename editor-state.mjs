@@ -33,3 +33,48 @@ export const toggleSel = (s, i) => {
   state.selection.has(k) ? state.selection.delete(k) : state.selection.add(k);
 };
 export const clearSel = () => state.selection.clear();
+
+// ── undo / redo ──────────────────────────────────────────────────────────────
+const undoStack = [];
+const redoStack = [];
+const MAX_HISTORY = 100;
+
+function applySnapshot(snap) {
+  state.segments = snap.segments.map((s) => s.map((p) => [p[0], p[1]]));
+  state.activeSeg = snap.activeSeg;
+  state.selection = new Set(snap.selection);
+}
+
+export function captureSnapshot() {
+  return {
+    segments: state.segments.map((s) => s.map((p) => [p[0], p[1]])),
+    activeSeg: state.activeSeg,
+    selection: new Set(state.selection),
+  };
+}
+
+// Push a previously captured snapshot onto the undo stack.
+export function commitSnapshot(snap) {
+  undoStack.push(snap);
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack.length = 0;
+}
+
+// Capture current state and push it (convenience for non-drag mutations).
+export function pushHistory() {
+  commitSnapshot(captureSnapshot());
+}
+
+export function undo() {
+  if (!undoStack.length) return false;
+  redoStack.push(captureSnapshot());
+  applySnapshot(undoStack.pop());
+  return true;
+}
+
+export function redo() {
+  if (!redoStack.length) return false;
+  undoStack.push(captureSnapshot());
+  applySnapshot(redoStack.pop());
+  return true;
+}

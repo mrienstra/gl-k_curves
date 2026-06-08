@@ -8,6 +8,11 @@ import {
   removeFromSel,
   toggleSel,
   clearSel,
+  pushHistory,
+  captureSnapshot,
+  commitSnapshot,
+  undo,
+  redo,
 } from "./editor-state.mjs";
 import { draw } from "./editor-draw.mjs";
 
@@ -54,12 +59,16 @@ function nearestPoint(x, y, radius = 12) {
 
 // ── canvas events ────────────────────────────────────────────────────────────
 function bindCanvasEvents(canvas) {
+  // Snapshot taken at drag-start; committed to undo stack only if the point moved.
+  let preDragSnapshot = null;
+
   canvas.addEventListener("mousedown", (e) => {
     const x = e.offsetX,
       y = e.offsetY;
     const hit = nearestPoint(x, y);
     state.mouseDownPos = { x, y };
     if (hit) {
+      preDragSnapshot = captureSnapshot();
       state.drag = hit;
       state.dragDelta = { lastX: x, lastY: y };
       state.activeSeg = hit.s;
@@ -130,6 +139,8 @@ function bindCanvasEvents(canvas) {
 
     if (state.drag) {
       if (dist < 5) {
+        // Click, not a drag — discard the pre-drag snapshot
+        preDragSnapshot = null;
         if (e.shiftKey || e.metaKey || e.ctrlKey) {
           toggleSel(state.drag.s, state.drag.i);
         } else {
@@ -140,6 +151,10 @@ function bindCanvasEvents(canvas) {
           if (!wasOnly) addToSel(state.drag.s, state.drag.i);
         }
         draw();
+      } else {
+        // Actual move — commit the pre-drag snapshot
+        commitSnapshot(preDragSnapshot);
+        preDragSnapshot = null;
       }
       state.drag = null;
       state.dragDelta = null;
@@ -149,6 +164,7 @@ function bindCanvasEvents(canvas) {
           clearSel();
         } else {
           const edge = nearestEdge(e.offsetX, e.offsetY);
+          pushHistory();
           if (edge) {
             state.segments[edge.s].splice(edge.i + 1, 0, [e.offsetX, e.offsetY]);
             state.activeSeg = edge.s;
@@ -177,6 +193,7 @@ function bindCanvasEvents(canvas) {
   canvas.addEventListener("dblclick", (e) => {
     const hit = nearestPoint(e.offsetX, e.offsetY);
     if (!hit) return;
+    pushHistory();
     removeFromSel(hit.s, hit.i);
     state.segments[hit.s].splice(hit.i, 1);
     if (state.segments[hit.s].length === 0 && state.segments.length > 1) {
@@ -200,6 +217,7 @@ function bindButtonEvents(canvas) {
       const { s, i } = selArr[0];
       const pts = state.segments[s];
       if (i === 0 || i === pts.length - 1) return;
+      pushHistory();
       state.segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
       state.activeSeg = s + 1;
       clearSel();
@@ -222,6 +240,7 @@ function bindButtonEvents(canvas) {
       const merged = [...a, ...b.slice(1)];
 
       // Splice out both segments (higher index first to preserve lower index)
+      pushHistory();
       const [hi, lo] = s1 > s2 ? [s1, s2] : [s2, s1];
       state.segments.splice(hi, 1);
       state.segments.splice(lo, 1, merged);
@@ -232,12 +251,14 @@ function bindButtonEvents(canvas) {
   });
 
   document.getElementById("btnNewSeg").addEventListener("click", () => {
+    pushHistory();
     state.segments.push([]);
     state.activeSeg = state.segments.length - 1;
     draw();
   });
 
   document.getElementById("btnClear").addEventListener("click", () => {
+    pushHistory();
     if (state.segments.length > 1) {
       state.segments.splice(state.activeSeg, 1);
       state.activeSeg = Math.min(state.activeSeg, state.segments.length - 1);
@@ -249,6 +270,7 @@ function bindButtonEvents(canvas) {
   });
 
   document.getElementById("btnReset").addEventListener("click", () => {
+    pushHistory();
     state.segments = [
       [
         [120, 350],
@@ -293,6 +315,7 @@ function bindButtonEvents(canvas) {
         segs = data.segments;
         if (typeof data.eta === "number") etaOverride = data.eta;
       }
+      pushHistory();
       state.segments = segs;
       state.activeSeg = 0;
       clearSel();
@@ -325,6 +348,7 @@ function bindButtonEvents(canvas) {
         alert("No supported path found in SVG.");
         return;
       }
+      pushHistory();
       state.segments = segs;
       state.activeSeg = 0;
       clearSel();
@@ -360,6 +384,12 @@ function bindButtonEvents(canvas) {
 // ── keyboard ─────────────────────────────────────────────────────────────────
 function bindKeyEvents() {
   document.addEventListener("keydown", (e) => {
+    if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      if (e.shiftKey) { if (redo()) draw(); }
+      else            { if (undo()) draw(); }
+      return;
+    }
     if ((e.key === "a" || e.key === "A") && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       for (let s = 0; s < state.segments.length; s++)
@@ -370,6 +400,7 @@ function bindKeyEvents() {
     if (e.key !== "Delete" && e.key !== "Backspace") return;
     if (state.selection.size === 0) return;
     e.preventDefault();
+    pushHistory();
     const toDelete = [...state.selection]
       .map((k) => {
         const [s, i] = k.split(":").map(Number);
