@@ -36,7 +36,7 @@
       overflow: hidden;
     }
 
-    label {
+    #sidebar > label {
       display: block;
       margin: 6px 0 2px;
     }
@@ -47,6 +47,12 @@
       gap: 6px;
       margin: 4px 0;
       font-size: 12px;
+    }
+
+    .multiple-inline-controls {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
     }
 
     .swatch {
@@ -111,8 +117,10 @@
         style="background:repeating-linear-gradient(90deg,#fff 0,#fff 5px,transparent 5px,transparent 9px);height:1px"></span>
       GL-k (frac.)</div>
 
-    <label style="margin-top:10px"><input type="checkbox" id="chkFrac"> GL-k <span id="kVal">1.00</span>
-      &nbsp;<input type="checkbox" id="chkFracMod"> mod</label>
+    <div class="multiple-inline-controls">
+      <label><input type="checkbox" id="chkFrac"> GL-k <span id="kVal">1.00</span></label>
+      &nbsp;<label><input type="checkbox" id="chkFracMod"> mod</label>
+    </div>
     <input type="range" id="sldK" min="0" max="3" step="0.05" value="1" style="width:100%;margin:2px 0">
     <p style="margin-top:2px;font-size:10px;color:#555">fractional blend (experimental)</p>
 
