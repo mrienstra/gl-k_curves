@@ -413,4 +413,4 @@ Fig. 8: Line-art examples with modified GL-1 curves.
 - legendrereduce.mjs  — Algorithm 2 LEGENDREREDUCE (O(n+k) R_k operator)
 - glk-curve.mjs       — top-level: control pts + k → Legendre coeffs of GL-k curve
                         (wires together averaging + gl0-legendre + legendrereduce)
-- demo.html / demo.mjs — Canvas visualisation to sanity-check against paper figures
+- editor.html / editor.mjs — Canvas visualisation to sanity-check against paper figures

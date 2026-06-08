@@ -11,7 +11,7 @@ Requires a local HTTP server (ES modules don't load from `file://`):
 ```
 python3 -m http.server 8000
 ```
-Then open `http://localhost:8000/demo.html`.
+Then open `http://localhost:8000/editor.html`.
 
 Sanity checks: `node sanity-check.mjs`
 
@@ -19,7 +19,7 @@ Sanity checks: `node sanity-check.mjs`
 
 | File | Purpose |
 |------|---------|
-| `demo.html` + `demo.mjs` | Interactive canvas demo |
+| `editor.html` + `editor.mjs` | Interactive canvas editor |
 | `basis.html` | GL-k basis function plotter |
 | `sanity-check.mjs` | Unit tests (node) |
 
@@ -42,7 +42,7 @@ Sanity checks: `node sanity-check.mjs`
 
 ## Non-obvious parameters
 
-**η (eta)**: Tangent scaling for modified GL-k. `null` = paper default `1/ω₀` where `ω₀` is the first GL quadrature weight. Exposed as a slider in the demo (0 = auto).
+**η (eta)**: Tangent scaling for modified GL-k. `null` = paper default `1/ω₀` where `ω₀` is the first GL quadrature weight. Exposed as a slider in the editor (0 = auto).
 
 **α (alpha)**: Blends between no tangent correction (α=0, collapses to plain GL-k) and full correction (α=1). Values outside [0,1] are valid — >1 over-corrects (like tension>1 in tension splines), <0 anti-corrects.
 

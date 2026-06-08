@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>GL-k curves editor</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1a1a1a;
+      color: #ddd;
+      font: 14px/1.5 monospace;
+      display: flex;
+    }
+
+    #sidebar {
+      width: 200px;
+      padding: 16px;
+      flex-shrink: 0;
+    }
+
+    canvas {
+      cursor: crosshair;
+      display: block;
+      flex-shrink: 0;
+    }
+
+    #main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    #svgPreview {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    label {
+      display: block;
+      margin: 6px 0 2px;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 0;
+      font-size: 12px;
+    }
+
+    .swatch {
+      width: 24px;
+      height: 3px;
+      display: inline-block;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 4px 10px;
+      background: #333;
+      color: #ddd;
+      border: 1px solid #555;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #444;
+    }
+
+    p {
+      font-size: 11px;
+      color: #888;
+      margin: 12px 0 0;
+    }
+
+    #segInfo {
+      color: #aaa;
+      font-size: 12px;
+      margin: 8px 0 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar">
+    <b>GL-k curves</b>
+    <p>Click to add points.<br>Drag to move.<br>Dbl-click to remove.<br>Click point to select.<br>Shift/⌘ click to
+      multi-select.<br>Drag empty area to marquee.<br>Delete/⌫ to remove selected.</p>
+
+    <label><input type="checkbox" id="chk0" checked> GL-0</label>
+    <label><input type="checkbox" id="chk1" checked> GL-1</label>
+    <label><input type="checkbox" id="chk2" checked> GL-2</label>
+    <label><input type="checkbox" id="chkM0"> mod GL-0</label>
+    <label><input type="checkbox" id="chkM1" checked> mod GL-1</label>
+    <label><input type="checkbox" id="chkPoly" checked> polygon</label>
+
+    <div class="legend"><span class="swatch" style="background:#f97"></span> GL-0</div>
+    <div class="legend"><span class="swatch" style="background:#7bf"></span> GL-1</div>
+    <div class="legend"><span class="swatch" style="background:#8f8"></span> GL-2</div>
+    <div class="legend"><span class="swatch" style="background:#f5c;height:2px"></span> mod GL-0</div>
+    <div class="legend"><span class="swatch" style="background:#fc6;height:2px"></span> mod GL-1</div>
+    <div class="legend"><span class="swatch" style="background:#555;height:1px"></span> polygon</div>
+    <div class="legend"><span class="swatch"
+        style="background:repeating-linear-gradient(90deg,#fff 0,#fff 5px,transparent 5px,transparent 9px);height:1px"></span>
+      GL-k (frac.)</div>
+
+    <label style="margin-top:10px"><input type="checkbox" id="chkFrac"> GL-k <span id="kVal">1.00</span>
+      &nbsp;<input type="checkbox" id="chkFracMod"> mod</label>
+    <input type="range" id="sldK" min="0" max="3" step="0.05" value="1" style="width:100%;margin:2px 0">
+    <p style="margin-top:2px;font-size:10px;color:#555">fractional blend (experimental)</p>
+
+    <label style="margin-top:10px">η <span id="etaVal">auto</span>
+      <input type="range" id="sldEta" min="0" max="40" step="0.5" value="0" style="width:100%;margin:2px 0">
+    </label>
+    <p style="margin-top:2px;font-size:10px;color:#666">0 = paper default (1/ω₀)</p>
+
+    <label style="margin-top:10px">mod α <span id="alphaVal">1.00</span>
+      <input type="range" id="sldAlpha" min="-0.5" max="2.5" step="0.05" value="1" style="width:100%;margin:2px 0">
+    </label>
+    <p style="margin-top:2px;font-size:10px;color:#666">0 = no mod, 1 = full mod</p>
+
+    <div id="segInfo">Seg 1 / 1</div>
+
+    <button id="btnSplit">Split at selected</button>
+    <button id="btnNewSeg">New segment</button>
+    <button id="btnClear">Clear segment</button>
+    <button id="btnReset">Reset to example</button>
+    <button id="btnCopy">Copy JSON</button>
+    <button id="btnPaste">Paste JSON</button>
+    <button id="btnImportSVG">Import SVG</button>
+    <input type="file" id="fileSVGImport" accept=".svg" style="display:none">
+    <button id="btnSVG">Export SVG</button>
+    <label style="margin-top:6px"><input type="checkbox" id="chkSVGPreview"> SVG preview</label>
+
+    <p><a href="basis.html" style="color:#7bf">basis functions →</a></p>
+  </div>
+  <div id="main">
+    <canvas id="c"></canvas>
+    <div id="svgPreview" style="display:none"></div>
+  </div>
+
+  <script type="module" src="editor.mjs"></script>
+</body>
+
+</html>

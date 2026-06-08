@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // svg-path-to-json.mjs — CLI wrapper around svg-path-import.mjs
 // Usage: node svg-path-to-json.mjs resources/figure-1-1-cat.svg
-// Outputs JSON to stdout, ready to paste into the demo via "Paste JSON".
+// Outputs JSON to stdout, ready to paste into the editor via "Paste JSON".
 
 import { readFileSync } from 'fs';
 import { svgFileToSegments } from './svg-path-import.mjs';

@@ -122,14 +122,14 @@ function buildChains(segs) {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a complete SVG document mirroring the current demo canvas.
+ * Build a complete SVG document mirroring the current editor canvas.
  *
  * Consecutive segments that share an endpoint (e.g. produced by "split") are
  * merged into a single SVG <path> element per curve type so that the join is
  * rendered with a proper stroke-linejoin rather than two separate stroke caps.
  *
  * @param {Array}  segments - array of control-point arrays  [[x,y], …]
- * @param {Object} opts     - mirrors the demo's checkboxes / sliders:
+ * @param {Object} opts     - mirrors the editor's checkboxes / sliders:
  *   width, height          canvas size
  *   showGL0/1/2            integer GL-k curves
  *   showM0/M1              modified GL-k curves
