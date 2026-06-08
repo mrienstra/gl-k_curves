@@ -4,7 +4,7 @@
 // Outputs JSON to stdout, ready to paste into the editor via "Paste JSON".
 
 import { readFileSync } from 'fs';
-import { svgFileToSegments } from './svg-path-import.mjs';
+import { svgFileToSegments } from './svg-path-import';
 
 const file = process.argv[2];
 if (!file) { console.error('Usage: node svg-path-to-json.mjs <file.svg>'); process.exit(1); }

@@ -20,7 +20,7 @@ import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified';
 import { buildGLKMatrixFractional }    from './glk-fractional';
 import { glWeights }                   from './legendre';
-import { findSeamT, cosSeamT }         from './glk-closed.mjs';
+import { findSeamT, cosSeamT }         from './glk-closed';
 
 // ---------------------------------------------------------------------------
 // Legendre series differentiation

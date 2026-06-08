@@ -3,7 +3,7 @@
  * and curve visibility.
  */
 
-import { curveStyles } from "./editor-state.mjs";
+import { curveStyles } from "./editor-state";
 import { draw } from "./editor-draw.mjs";
 
 // ── defaults ──────────────────────────────────────────────────────────────────

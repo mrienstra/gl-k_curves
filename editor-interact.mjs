@@ -1,6 +1,6 @@
 import { buildSVG } from "./glk-svg.mjs";
-import { computeAutoSeamT } from "./glk-closed.mjs";
-import { svgFileToSegments } from "./svg-path-import.mjs";
+import { computeAutoSeamT } from "./glk-closed";
+import { svgFileToSegments } from "./svg-path-import";
 import {
   state,
   selKey,
@@ -15,7 +15,7 @@ import {
   undo,
   redo,
   getClosedOpts,
-} from "./editor-state.mjs";
+} from "./editor-state";
 import { draw } from "./editor-draw.mjs";
 import {
   bindStyleModal,

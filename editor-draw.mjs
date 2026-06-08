@@ -4,14 +4,14 @@ import {
   sampleGLKFractionalClosed,
   sampleModifiedGLKClosed,
   sampleModifiedGLKFractionalClosed,
-} from "./glk-closed.mjs";
+} from "./glk-closed";
 import { sampleModifiedGLK } from "./glk-modified";
 import {
   sampleGLKFractional,
   sampleModifiedGLKFractional,
 } from "./glk-fractional";
 import { buildSVG } from "./glk-svg.mjs";
-import { state, isSelected, curveStyles, getClosedOpts } from "./editor-state.mjs";
+import { state, isSelected, curveStyles, getClosedOpts } from "./editor-state";
 
 let canvas, ctx;
 export function initDraw(c, context) {
