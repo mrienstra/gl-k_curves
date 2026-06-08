@@ -1,5 +1,5 @@
 /**
- * Sanity checks — run with:  node sanity-check.mjs
+ * Sanity checks — run with:  tsx sanity-check.ts
  *
  * All results below are analytically verifiable by hand.
  */
@@ -12,7 +12,7 @@ import { legendreReduce } from './legendrereduce';
 
 let passed = 0, failed = 0;
 
-function check(label, got, expected, tol = 1e-12) {
+function check(label: string, got: number, expected: number, tol = 1e-12) {
   const err = Math.abs(got - expected);
   if (err < tol) {
     console.log(`  ✓  ${label}`);
@@ -24,7 +24,7 @@ function check(label, got, expected, tol = 1e-12) {
   }
 }
 
-function checkVec(label, got, expected, tol = 1e-12) {
+function checkVec(label: string, got: number[], expected: number[], tol = 1e-12) {
   const err = Math.max(...got.map((v, i) => Math.abs(v - expected[i])));
   if (err < tol) {
     console.log(`  ✓  ${label}`);

@@ -34,7 +34,7 @@ import {
   buildModifiedGLKMatrix,
   applyTangentOperator,
 } from "./glk-modified";
-import { buildGLKMatrixFractional } from "./glk-fractional.mjs";
+import { buildGLKMatrixFractional } from "./glk-fractional";
 import { glWeights } from "./legendre";
 
 // ---------------------------------------------------------------------------

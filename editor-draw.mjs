@@ -9,7 +9,7 @@ import { sampleModifiedGLK } from "./glk-modified";
 import {
   sampleGLKFractional,
   sampleModifiedGLKFractional,
-} from "./glk-fractional.mjs";
+} from "./glk-fractional";
 import { buildSVG } from "./glk-svg.mjs";
 import { state, isSelected, curveStyles, getClosedOpts } from "./editor-state.mjs";
 

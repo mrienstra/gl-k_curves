@@ -27,7 +27,7 @@ import { gleveal }                     from './gleval';
  * Build the blended L_k matrix for real-valued k ≥ 0.
  * For integer k, identical to buildGLKMatrix(n, k).
  */
-export function buildGLKMatrixFractional(n, k) {
+export function buildGLKMatrixFractional(n: number, k: number): Float64Array[] {
   const k0 = Math.floor(k);
   const f  = k - k0;
   if (f < 1e-10) return buildGLKMatrix(n, k0);  // exact integer, no blend needed
@@ -45,11 +45,11 @@ export function buildGLKMatrixFractional(n, k) {
 /**
  * Sample the fractional GL-k curve at nSamples evenly-spaced t ∈ [-1,1].
  */
-export function sampleGLKFractional(pts, k = 1, nSamples = 200) {
+export function sampleGLKFractional(pts: number[][], k = 1, nSamples = 200): number[][] {
   const n      = pts.length - 1;
   const L      = buildGLKMatrixFractional(n, k);
   const coeffs = applyMatrix(L, pts);
-  const out    = [];
+  const out: number[][] = [];
   for (let i = 0; i < nSamples; i++) {
     const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));
@@ -64,7 +64,14 @@ export function sampleGLKFractional(pts, k = 1, nSamples = 200) {
  * alpha blends between no correction (0) and full correction (1); values
  * outside [0,1] give over/under-correction.
  */
-export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null, alpha = 1) {
+export function sampleModifiedGLKFractional(
+  pts: number[][],
+  k = 1,
+  nSamples = 200,
+  eta1: number | null = null,
+  eta2: number | null = null,
+  alpha = 1,
+): number[][] {
   const n = pts.length - 1;
   if (n < 3) return sampleGLKFractional(pts, k, nSamples);  // fallback: no tangent correction
 
@@ -77,7 +84,7 @@ export function sampleModifiedGLKFractional(pts, k = 1, nSamples = 200, eta1 = n
   const L      = buildGLKMatrixFractional(n, k);
   const Ltilde = applyTangentOperator(n, L, eta1, eta2, alpha);
   const coeffs = applyMatrix(Ltilde, pts);
-  const out    = [];
+  const out: number[][] = [];
   for (let i = 0; i < nSamples; i++) {
     const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));

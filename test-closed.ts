@@ -23,7 +23,7 @@ const pts   = [[275,525],[25,275],[275,25],[525,275],[275,525]];
 const tile  = pts.slice(0, pts.length - 1);   // [p0,p1,p2,p3]
 const copies = 3;
 
-const extended = [];
+const extended: number[][] = [];
 for (let c = 0; c < copies; c++) for (const p of tile) extended.push(p);
 extended.push(tile[0]);  // close: length = copies*tile.length + 1 = 13
 
@@ -98,14 +98,14 @@ console.log(`  (same as approach B: start=tStartB, end=tEndB)`);
 console.log();
 
 // ── evaluate curves ───────────────────────────────────────────────────────────
-function gap(pt) {
+function gap(pt: number[]): number {
   const dx = pt[0] - p0[0], dy = pt[1] - p0[1];
   return Math.sqrt(dx*dx + dy*dy);
 }
-function fmt(pt) {
+function fmt(pt: number[]): string {
   return `[${pt[0].toFixed(3)}, ${pt[1].toFixed(3)}]`;
 }
-function fmtGap(pt) {
+function fmtGap(pt: number[]): string {
   const dx = pt[0] - p0[0], dy = pt[1] - p0[1];
   return `gap=[${dx.toFixed(3)}, ${dy.toFixed(3)}], dist=${gap(pt).toFixed(3)}`;
 }
@@ -152,7 +152,7 @@ for (const k of [0, 1, 2]) {
 // Let's also scan around them to see if there's a nearby t with smaller gap.
 console.log('─── Scan near τ_4 and τ_8 for GL-0 ───────────────────────────');
 const coeffs0 = glkCoeffs(extended, 0);
-for (const [label, tCenter] of [['τ_4', tStartB], ['τ_8', tEndB]]) {
+for (const [label, tCenter] of ([['τ_4', tStartB], ['τ_8', tEndB]] as [string, number][])) {
   console.log(`Near ${label} = ${tCenter.toFixed(9)}:`);
   for (let delta = -0.01; delta <= 0.011; delta += 0.002) {
     const t = tCenter + delta;
@@ -166,9 +166,7 @@ console.log();
 console.log('─── GL-0: scan full t in [-1,1] for proximity to p0 ───────────');
 {
   const steps = 2000;
-  let localMins = [];
-  let prevDist = Infinity;
-  let prevT = -1;
+  const localMins: { t: number; pt: number[]; d: number }[] = [];
   for (let i = 0; i <= steps; i++) {
     const t = -1 + 2 * i / steps;
     const pt = gleveal(coeffs0, t);
@@ -223,7 +221,7 @@ console.log();
 for (const moreCopies of [5, 7, 9]) {
   let c = moreCopies;
   if (c % 2 === 0) c++;
-  const ext2 = [];
+  const ext2: number[][] = [];
   for (let cc = 0; cc < c; cc++) for (const p of tile) ext2.push(p);
   ext2.push(tile[0]);
   const n2 = ext2.length - 1;
@@ -285,7 +283,11 @@ console.log();
 console.log('─── Best t near each seam for each GL-k (min dist to p0) ──────');
 for (const k of [0, 1, 2]) {
   const coeffs = glkCoeffs(extended, k);
-  for (const [label, tCenter] of [['seam1 (t≈'+tStartE.toFixed(3)+')', tStartE], ['seam2 (t≈'+tEndE.toFixed(3)+')', tEndE]]) {
+  const pairs: [string, number][] = [
+    ['seam1 (t≈'+tStartE.toFixed(3)+')', tStartE],
+    ['seam2 (t≈'+tEndE.toFixed(3)+')',   tEndE],
+  ];
+  for (const [label, tCenter] of pairs) {
     let bestT = tCenter, bestDist = Infinity;
     for (let dt = -0.3; dt <= 0.3; dt += 0.001) {
       const t = tCenter + dt;
@@ -308,7 +310,7 @@ console.log('─── GL-0 root finding: where does curve_x(t) = 275 OR curve_y
 {
   const coeffs = glkCoeffs(extended, 0);
   // Scan for sign changes in (curve_x - 275)
-  const xRoots = [], yRoots = [];
+  const xRoots: number[] = [], yRoots: number[] = [];
   let prevX = gleveal(coeffs, -1)[0] - p0[0];
   let prevY = gleveal(coeffs, -1)[1] - p0[1];
   const scan = 10000;
@@ -330,8 +332,6 @@ console.log('─── GL-0 root finding: where does curve_x(t) = 275 OR curve_y
   for (const tApprox of [tStartE, tEndE, tStartB, tEndB]) {
     // Bisection on total gap
     let tLow = tApprox - 0.1, tHigh = tApprox + 0.1;
-    let dist = gap(gleveal(coeffs, tApprox));
-    let bestT = tApprox;
     for (let iter = 0; iter < 50; iter++) {
       const tMid = (tLow + tHigh) / 2;
       const dL = gap(gleveal(coeffs, tMid - 0.0001));

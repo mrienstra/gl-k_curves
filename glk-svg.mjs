@@ -18,7 +18,7 @@ import { gleveal }                     from './gleval';
 import { buildGLKMatrix, applyMatrix } from './glk-matrix';
 import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified';
-import { buildGLKMatrixFractional }    from './glk-fractional.mjs';
+import { buildGLKMatrixFractional }    from './glk-fractional';
 import { glWeights }                   from './legendre';
 import { findSeamT, cosSeamT }         from './glk-closed.mjs';
 

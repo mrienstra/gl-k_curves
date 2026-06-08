@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "tsx sanity-check.mjs"
+    "test": "tsx sanity-check.ts"
   },
   "keywords": [],
   "author": "",

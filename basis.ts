@@ -1,8 +1,8 @@
 import { buildGLKMatrix } from './glk-matrix';
 import { gleveal }        from './gleval';
 
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
+const canvas = document.getElementById('c') as HTMLCanvasElement;
+const ctx    = canvas.getContext('2d') as CanvasRenderingContext2D;
 
 // ── sizing ──────────────────────────────────────────────────────────────────
 function resize() {
@@ -14,7 +14,7 @@ window.addEventListener('resize', resize);
 
 // ── compute basis functions ─────────────────────────────────────────────────
 // Returns (n+1) arrays, each of length nSamples: cols[i][s] = C_i^k(t_s).
-function computeBasis(n, k, nSamples = 600) {
+function computeBasis(n: number, k: number, nSamples = 600): number[][] {
   const L = buildGLKMatrix(n, k);
 
   // Extract all columns once — cols[i] = Legendre coefficients of C_i^k
@@ -33,15 +33,15 @@ function computeBasis(n, k, nSamples = 600) {
 }
 
 // ── color per basis index ───────────────────────────────────────────────────
-function basisColor(i, n) {
+function basisColor(i: number, n: number): string {
   const hue = Math.round(360 * i / (n + 1));
   return `hsl(${hue}, 75%, 62%)`;
 }
 
 // ── draw ────────────────────────────────────────────────────────────────────
 function draw() {
-  const n = parseInt(document.getElementById('selN').value);
-  const k = parseInt(document.getElementById('selK').value);
+  const n = parseInt((document.getElementById('selN') as HTMLSelectElement).value);
+  const k = parseInt((document.getElementById('selK') as HTMLSelectElement).value);
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -57,8 +57,8 @@ function draw() {
   // Fixed y range: show [-0.2, 1.15] to accommodate negatives + top margin
   const yLo = -0.22, yHi = 1.15;
 
-  function tx(t)   { return ML + (t + 1) / 2 * W; }
-  function ty(val) { return MT + (1 - (val - yLo) / (yHi - yLo)) * H; }
+  function tx(t: number)   { return ML + (t + 1) / 2 * W; }
+  function ty(val: number) { return MT + (1 - (val - yLo) / (yHi - yLo)) * H; }
 
   // ── grid & axes ──────────────────────────────────────────────────────────
   ctx.strokeStyle = '#333';
@@ -164,12 +164,12 @@ function draw() {
   }
 
   // ── min value label ──────────────────────────────────────────────────────
-  document.getElementById('minVal').textContent =
+  document.getElementById('minVal')!.textContent =
     `min C_i^${k} ≈ ${globalMin.toFixed(4)}`;
 }
 
 // ── controls ────────────────────────────────────────────────────────────────
-document.getElementById('selN').addEventListener('change', draw);
-document.getElementById('selK').addEventListener('change', draw);
+document.getElementById('selN')!.addEventListener('change', draw);
+document.getElementById('selK')!.addEventListener('change', draw);
 
 resize();
