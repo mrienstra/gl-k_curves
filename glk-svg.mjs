@@ -19,7 +19,7 @@ import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
 import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified.mjs';
 import { buildGLKMatrixFractional }    from './glk-fractional.mjs';
-import { glWeights }                   from './legendre.mjs';
+import { glWeights, glNodes }          from './legendre.mjs';
 
 // ---------------------------------------------------------------------------
 // Legendre series differentiation
@@ -148,8 +148,9 @@ function closedPathDWithMatrix(pts, matrixFn, copies, M) {
   const coeffs = applyMatrix(L, extended);
 
   const midCopy = Math.floor(copies / 2);
-  const tStart  = -Math.cos(Math.PI * midCopy / copies);
-  const tEnd    = -Math.cos(Math.PI * (midCopy + 1) / copies);
+  const nodes = glNodes(nExt);
+  const tStart = nodes[midCopy * tile.length - 1];
+  const tEnd   = nodes[(midCopy + 1) * tile.length - 1];
 
   return coeffsToSVGPath(coeffs, M, tStart, tEnd) + ' Z';
 }

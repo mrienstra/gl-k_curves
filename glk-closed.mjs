@@ -27,7 +27,7 @@ import {
   applyTangentOperator,
 } from "./glk-modified.mjs";
 import { buildGLKMatrixFractional } from "./glk-fractional.mjs";
-import { glWeights } from "./legendre.mjs";
+import { glWeights, glNodes } from "./legendre.mjs";
 
 /**
  * Sample a closed GL-k curve.
@@ -63,20 +63,32 @@ export function sampleGLKClosed(pts, k = 1, nSamples = 200, opts = null) {
   // GL-k Legendre coefficients for the extended sequence
   const coeffs = glkCoeffs(extended, k);
 
-  // Sample `copies * nSamples` points with cosine spacing over [-1, 1]
-  const M = copies * nSamples;
-  const all = [];
-  for (let i = 0; i < M; i++) {
-    const t = -Math.cos((Math.PI * i) / (M - 1));
-    all.push(gleveal(coeffs, t));
+  if (showFull) {
+    const M = copies * nSamples;
+    const all = [];
+    for (let i = 0; i < M; i++) {
+      const t = -Math.cos((Math.PI * i) / (M - 1));
+      all.push(gleveal(coeffs, t));
+    }
+    return all;
   }
 
-  if (showFull) return all;
-
-  // Extract the most central single copy.
-  // floor(copies/2) is the 0-indexed middle copy for any copies ≥ 2.
+  // Use the GL nodes of the extended sequence to locate the exact period
+  // boundaries.  For GL-0 the curve passes through the seam point (p0) exactly
+  // at these nodes; for GL-k they are a close proxy.
+  // n = copies * tile.length; seam is at control-point index midCopy*tile.length.
+  const n = extended.length - 1;
+  const nodes = glNodes(n);
   const midCopy = Math.floor(copies / 2);
-  return all.slice(midCopy * nSamples, (midCopy + 1) * nSamples + 1);
+  const tStart = nodes[midCopy * tile.length - 1];
+  const tEnd   = nodes[(midCopy + 1) * tile.length - 1];
+
+  const out = [];
+  const cMid = (tStart + tEnd) / 2, cAmp = (tEnd - tStart) / 2;
+  for (let i = 0; i <= nSamples; i++) {
+    out.push(gleveal(coeffs, cMid - cAmp * Math.cos(Math.PI * i / nSamples)));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,15 +120,27 @@ function _sampleClosedWithMatrix(pts, matrixFn, nSamples, opts = null) {
   const L = matrixFn(n);
   const coeffs = applyMatrix(L, extended);
 
-  const M = copies * nSamples;
-  const all = [];
-  for (let i = 0; i < M; i++) {
-    const t = -Math.cos((Math.PI * i) / (M - 1));
-    all.push(gleveal(coeffs, t));
+  if (showFull) {
+    const M = copies * nSamples;
+    const all = [];
+    for (let i = 0; i < M; i++) {
+      const t = -Math.cos((Math.PI * i) / (M - 1));
+      all.push(gleveal(coeffs, t));
+    }
+    return all;
   }
-  if (showFull) return all;
+
+  const nodes = glNodes(n);
   const midCopy = Math.floor(copies / 2);
-  return all.slice(midCopy * nSamples, (midCopy + 1) * nSamples + 1);
+  const tStart = nodes[midCopy * tile.length - 1];
+  const tEnd   = nodes[(midCopy + 1) * tile.length - 1];
+
+  const out = [];
+  const cMid = (tStart + tEnd) / 2, cAmp = (tEnd - tStart) / 2;
+  for (let i = 0; i <= nSamples; i++) {
+    out.push(gleveal(coeffs, cMid - cAmp * Math.cos(Math.PI * i / nSamples)));
+  }
+  return out;
 }
 
 /** Sample a closed fractional GL-k curve. */
