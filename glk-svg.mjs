@@ -150,7 +150,10 @@ export function buildSVG(segments, opts = {}) {
     showPoly = false,
     kFrac = 1, eta = null, alpha = 1,
     M = 8,
+    styles = {},
   } = opts;
+
+  const { color: gl0Color = '#f97', width: gl0Width = 2, dash: gl0Dash = [] } = styles.gl0 ?? {};
 
   // Format parameter values for <title> text
   const etaStr   = eta   === null ? 'auto' : eta.toFixed(2);
@@ -226,7 +229,8 @@ export function buildSVG(segments, opts = {}) {
 
     if (showGL0)
       addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 0),
-        'gl-0', 'GL-0', '#f97', 2);
+        'gl-0', 'GL-0', gl0Color, gl0Width,
+        gl0Dash.length ? gl0Dash.join(' ') : null);
     if (showGL1)
       addChainPath(chain, (pts, {n}) => buildGLKMatrix(n, 1),
         'gl-1', 'GL-1', '#7bf', 2);

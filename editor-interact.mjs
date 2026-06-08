@@ -292,7 +292,16 @@ function bindButtonEvents(canvas) {
       seg.map(([x, y]) => [Math.round(x), Math.round(y)]),
     );
     const raw = parseFloat(document.getElementById("sldEta").value);
-    const payload = raw === 0 ? rounded : { segments: rounded, eta: raw };
+    const s = curveStyles.gl0;
+    const hasCustomStyle = s.color !== "#ff9977" || s.width !== 2 || s.dash.length > 0;
+    const hasEta = raw !== 0;
+    if (!hasEta && !hasCustomStyle) {
+      var payload = rounded;
+    } else {
+      var payload = { segments: rounded };
+      if (hasEta) payload.eta = raw;
+      if (hasCustomStyle) payload.styles = { gl0: { color: s.color, width: s.width, dash: s.dash } };
+    }
     navigator.clipboard
       .writeText(JSON.stringify(payload))
       .catch(() => prompt("Copy this JSON:", JSON.stringify(payload)));
@@ -322,6 +331,8 @@ function bindButtonEvents(canvas) {
       clearSel();
       if (etaOverride !== null)
         document.getElementById("sldEta").value = etaOverride;
+      if (typeof data.styles?.gl0 === "object")
+        Object.assign(curveStyles.gl0, data.styles.gl0);
       draw();
     } catch {
       alert(
@@ -372,6 +383,7 @@ function bindButtonEvents(canvas) {
       kFrac: parseFloat(document.getElementById("sldK").value),
       eta: rawEta === 0 ? null : rawEta,
       alpha: parseFloat(document.getElementById("sldAlpha").value),
+      styles: { gl0: curveStyles.gl0 },
     });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),

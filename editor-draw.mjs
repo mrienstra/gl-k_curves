@@ -88,6 +88,7 @@ function updateSVGPreview() {
     kFrac: parseFloat(document.getElementById("sldK").value),
     eta: rawEta === 0 ? null : rawEta,
     alpha: parseFloat(document.getElementById("sldAlpha").value),
+    styles: { gl0: curveStyles.gl0 },
   });
   previewEl.innerHTML = svg;
   const svgEl = previewEl.querySelector("svg");
