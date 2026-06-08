@@ -5,7 +5,7 @@ import {
   sampleModifiedGLKClosed,
   sampleModifiedGLKFractionalClosed,
 } from "./glk-closed.mjs";
-import { sampleModifiedGLK } from "./glk-modified.mjs";
+import { sampleModifiedGLK } from "./glk-modified";
 import {
   sampleGLKFractional,
   sampleModifiedGLKFractional,

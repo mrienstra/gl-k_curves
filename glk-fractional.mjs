@@ -19,7 +19,7 @@
  */
 
 import { buildGLKMatrix, applyMatrix } from './glk-matrix';
-import { applyTangentOperator }        from './glk-modified.mjs';
+import { applyTangentOperator }        from './glk-modified';
 import { glWeights }                   from './legendre';
 import { gleveal }                     from './gleval';
 

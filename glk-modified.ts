@@ -30,7 +30,7 @@ import { glWeights }                   from './legendre';
 //   row 2: P_i'(-1) = (-1)^{i+1} d_i   ← derivative at t=-1
 //   row 3: P_i'(1)  = d_i              ← derivative at t=1
 // ---------------------------------------------------------------------------
-function buildD(n) {
+function buildD(n: number): Float64Array[] {
   const D = Array.from({ length: 4 }, () => new Float64Array(n + 1));
   for (let i = 0; i <= n; i++) {
     const sign = (i % 2 === 0) ? 1 : -1;
@@ -49,7 +49,7 @@ function buildD(n) {
 //   row 1: p_n             (keep value at t=1  = p_n)
 //   row 2: η1*(p_1 - p_0)  (tangent at t=-1 parallel to first edge)
 //   row 3: η2*(p_n-p_{n-1})(tangent at t=1  parallel to last  edge)
-function buildE(n, eta1, eta2) {
+function buildE(n: number, eta1: number, eta2: number): Float64Array[] {
   const E = Array.from({ length: 4 }, () => new Float64Array(n + 1));
   E[0][0] = 1;                           // p_0
   E[1][n] = 1;                           // p_n
@@ -59,7 +59,7 @@ function buildE(n, eta1, eta2) {
 }
 
 // M = D W^{-1} D^T  (4×4)
-function buildM(D, n) {
+function buildM(D: Float64Array[], n: number): Float64Array[] {
   const M = Array.from({ length: 4 }, () => new Float64Array(4));
   for (let r = 0; r < 4; r++)
     for (let s = 0; s < 4; s++) {
@@ -72,11 +72,11 @@ function buildM(D, n) {
 }
 
 // 4×4 Gaussian elimination with partial pivoting → returns M^{-1}
-function invert4(M) {
+function invert4(M: number[][]): number[][] {
   const n = 4;
   // Augmented matrix [M | I]
-  const A = M.map((row, i) => {
-    const r = [...row, ...Array(n).fill(0)];
+  const A: number[][] = M.map((row, i) => {
+    const r = [...row, ...Array<number>(n).fill(0)];
     r[n + i] = 1;
     return r;
   });
@@ -101,7 +101,7 @@ function invert4(M) {
 }
 
 // mat4 × mat  (4×(n+1) result from 4×4 and 4×(n+1))
-function mul4xN(A4, B, n) {
+function mul4xN(A4: number[][], B: Float64Array[], n: number): Float64Array[] {
   return Array.from({ length: 4 }, (_, r) => {
     const row = new Float64Array(n + 1);
     for (let c = 0; c <= n; c++)
@@ -124,14 +124,20 @@ function mul4xN(A4, B, n) {
  *
  * Requires n ≥ 3 (caller is responsible for checking).
  */
-export function applyTangentOperator(n, Lk, eta1, eta2, alpha = 1) {
+export function applyTangentOperator(
+  n: number,
+  Lk: Float64Array[],
+  eta1: number,
+  eta2: number,
+  alpha = 1,
+): Float64Array[] {
   const D    = buildD(n);
   const E    = buildE(n, eta1, eta2);
   const M    = buildM(D, n);
   const Minv = invert4(M.map(r => [...r]));
 
   // B = E - D Lk  (4×(n+1))
-  const B = Array.from({ length: 4 }, (_, r) => {
+  const B: Float64Array[] = Array.from({ length: 4 }, (_, r) => {
     const row = new Float64Array(n + 1);
     for (let c = 0; c <= n; c++) {
       row[c] = E[r][c];
@@ -159,7 +165,11 @@ export function applyTangentOperator(n, Lk, eta1, eta2, alpha = 1) {
 /**
  * Resolve eta defaults (null → 1/ω₀) and return [eta1, eta2].
  */
-function resolveEta(n, eta1, eta2) {
+function resolveEta(
+  n: number,
+  eta1: number | null,
+  eta2: number | null,
+): [number, number] {
   if (eta1 === null || eta2 === null) {
     const w0 = glWeights(n)[0];
     if (eta1 === null) eta1 = 1 / w0;
@@ -175,7 +185,13 @@ function resolveEta(n, eta1, eta2) {
  *   Default (null): 1/w_0 where w_0 is the first GL quadrature weight —
  *                   this matches the GL-0 derivative magnitude at τ_0 (paper default).
  */
-export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null, alpha = 1) {
+export function buildModifiedGLKMatrix(
+  n: number,
+  k: number,
+  eta1: number | null = null,
+  eta2: number | null = null,
+  alpha = 1,
+): Float64Array[] {
   // For n < 3: D is 4×(n+1) with n+1 < 4, so M = D W^{-1} D^T is rank-deficient.
   // Fall back to unmodified GL-k.
   if (n < 3) return buildGLKMatrix(n, k);
@@ -186,11 +202,18 @@ export function buildModifiedGLKMatrix(n, k, eta1 = null, eta2 = null, alpha = 1
 /**
  * Sample the modified GL-k curve at nSamples points.
  */
-export function sampleModifiedGLK(pts, k = 1, nSamples = 200, eta1 = null, eta2 = null, alpha = 1) {
+export function sampleModifiedGLK(
+  pts: number[][],
+  k = 1,
+  nSamples = 200,
+  eta1: number | null = null,
+  eta2: number | null = null,
+  alpha = 1,
+): number[][] {
   const n      = pts.length - 1;
   const Ltilde = buildModifiedGLKMatrix(n, k, eta1, eta2, alpha);
   const coeffs = applyMatrix(Ltilde, pts);
-  const out    = [];
+  const out: number[][] = [];
   for (let i = 0; i < nSamples; i++) {
     const t = -Math.cos(Math.PI * i / (nSamples - 1));
     out.push(gleveal(coeffs, t));
