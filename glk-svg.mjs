@@ -134,6 +134,7 @@ function buildChains(segs) {
  * an (nExt+1)×(nExt+1) matrix, or null to skip.  Appends "Z" to close the path.
  */
 function closedPathDWithMatrix(pts, matrixFn, copies, M) {
+  if (copies % 2 === 0) copies++; // must be odd so the middle copy has equal context on both sides
   const tile = pts.slice(0, pts.length - 1);  // drop trailing duplicate
   if (tile.length < 2) return null;
 
