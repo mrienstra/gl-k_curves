@@ -18,10 +18,10 @@
  *   - Tangent properties (those are nonlinear constraints)
  */
 
-import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
+import { buildGLKMatrix, applyMatrix } from './glk-matrix';
 import { applyTangentOperator }        from './glk-modified.mjs';
-import { glWeights }                   from './legendre.mjs';
-import { gleveal }                     from './gleval.mjs';
+import { glWeights }                   from './legendre';
+import { gleveal }                     from './gleval';
 
 /**
  * Build the blended L_k matrix for real-valued k ≥ 0.

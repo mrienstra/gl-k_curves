@@ -27,15 +27,15 @@
  * e.g. 0.5 for copies=3; but the true optimum is a bit smaller for each k.
  */
 
-import { glkCoeffs } from "./glk-curve.mjs";
-import { gleveal } from "./gleval.mjs";
-import { applyMatrix } from "./glk-matrix.mjs";
+import { glkCoeffs } from "./glk-curve";
+import { gleveal } from "./gleval";
+import { applyMatrix } from "./glk-matrix";
 import {
   buildModifiedGLKMatrix,
   applyTangentOperator,
 } from "./glk-modified.mjs";
 import { buildGLKMatrixFractional } from "./glk-fractional.mjs";
-import { glWeights } from "./legendre.mjs";
+import { glWeights } from "./legendre";
 
 // ---------------------------------------------------------------------------
 // Seam-T helpers (cosSeamT and findSeamT also exported for glk-svg.mjs)

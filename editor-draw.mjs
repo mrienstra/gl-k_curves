@@ -1,4 +1,4 @@
-import { sampleGLK } from "./glk-curve.mjs";
+import { sampleGLK } from "./glk-curve";
 import {
   sampleGLKClosed,
   sampleGLKFractionalClosed,

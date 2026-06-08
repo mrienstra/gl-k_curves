@@ -20,14 +20,14 @@
  *   → p(t) = (p_0+p_1)/2 · P_0  +  (p_1−p_0)/2 · P_1
  */
 
-import { legendreP, glNodes } from './legendre.mjs';
+import { legendreP, glNodes } from './legendre';
 
 // ---------------------------------------------------------------------------
 
-const _gl0MatrixCache = new Map();
+const _gl0MatrixCache = new Map<number, Float64Array[]>();
 
 /** g_{i,j} — j-th Legendre coeff of G_i^n. */
-function gCoeff(i, j, n, nodes) {
+function gCoeff(i: number, j: number, n: number, nodes: number[]): number {
   if (i === -1) return j === 0 ?  0.5 : 0;
   if (i ===  n) return j === 0 ? -0.5 : 0;
 
@@ -44,10 +44,12 @@ function gCoeff(i, j, n, nodes) {
  * Returns a row-major array:  M[j] is a Float64Array of length n+1.
  * Result is memoized: calling with the same n always returns the same object.
  */
-export function buildGL0Matrix(n) {
-  if (_gl0MatrixCache.has(n)) return _gl0MatrixCache.get(n);
+export function buildGL0Matrix(n: number): Float64Array[] {
+  const cached = _gl0MatrixCache.get(n);
+  if (cached !== undefined) return cached;
+
   const nodes = glNodes(n);   // n GL nodes (roots of P_n)
-  const M = [];
+  const M: Float64Array[] = [];
   for (let j = 0; j <= n; j++) {
     const row = new Float64Array(n + 1);
     for (let i = 0; i <= n; i++) {
@@ -64,7 +66,9 @@ export function buildGL0Matrix(n) {
  * controlPts : array of n+1 scalars  OR  n+1 equal-length numeric arrays.
  * Returns    : array of n+1 coefficients (same type as input elements).
  */
-export function gl0LegendreCoeffs(controlPts) {
+export function gl0LegendreCoeffs(controlPts: number[]): number[];
+export function gl0LegendreCoeffs(controlPts: number[][]): number[][];
+export function gl0LegendreCoeffs(controlPts: (number | number[])[]): (number | number[])[] {
   const n = controlPts.length - 1;
   const M = buildGL0Matrix(n);
   const isVec = Array.isArray(controlPts[0]);
@@ -72,14 +76,14 @@ export function gl0LegendreCoeffs(controlPts) {
   return M.map(row => {
     if (!isVec) {
       let s = 0;
-      for (let i = 0; i <= n; i++) s += row[i] * controlPts[i];
+      for (let i = 0; i <= n; i++) s += row[i] * (controlPts[i] as number);
       return s;
     }
-    const dim = controlPts[0].length;
-    const c = new Array(dim).fill(0);
+    const dim = (controlPts[0] as number[]).length;
+    const c = new Array<number>(dim).fill(0);
     for (let i = 0; i <= n; i++)
       for (let d = 0; d < dim; d++)
-        c[d] += row[i] * controlPts[i][d];
+        c[d] += row[i] * (controlPts[i] as number[])[d];
     return c;
   });
 }

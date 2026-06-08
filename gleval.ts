@@ -16,13 +16,13 @@
  * Works for scalar coefficients (numbers) and vector coefficients (arrays).
  * Returns the same type as the coefficient elements.
  */
-export function gleveal(coeffs, t) {
+export function gleveal(coeffs: number[], t: number): number;
+export function gleveal(coeffs: number[][], t: number): number[];
+export function gleveal(coeffs: (number | number[])[], t: number): number | number[] {
   const n = coeffs.length - 1;
   if (n < 0) throw new Error('coeffs must be non-empty');
 
   const isVec = Array.isArray(coeffs[0]);
-  const add   = isVec ? vecAdd   : (a, b) => a + b;
-  const scale = isVec ? vecScale : (s, v) => s * v;
 
   if (n === 0) return coeffs[0];
 
@@ -30,13 +30,19 @@ export function gleveal(coeffs, t) {
   let r2 = 1;  // P_0
   let r1 = t;  // P_1
 
-  let p = add(coeffs[0], scale(t, coeffs[1]));   // c_0*P_0 + c_1*P_1
+  let p: number | number[] = isVec
+    ? vecAdd(coeffs[0] as number[], vecScale(t, coeffs[1] as number[]))
+    : (coeffs[0] as number) + t * (coeffs[1] as number);
 
   for (let j = 2; j <= n; j++) {
     const alpha = (2 * j - 1) / j;
     const beta  = (j - 1)     / j;
     const rj = alpha * t * r1 - beta * r2;       // P_j(t), scalar recurrence
-    p  = add(p, scale(rj, coeffs[j]));
+    if (isVec) {
+      p = vecAdd(p as number[], vecScale(rj, coeffs[j] as number[]));
+    } else {
+      p = (p as number) + rj * (coeffs[j] as number);
+    }
     r2 = r1;
     r1 = rj;
   }
@@ -46,10 +52,10 @@ export function gleveal(coeffs, t) {
 
 // ---- tiny vector helpers (no external deps) --------------------------------
 
-function vecAdd(a, b) {
+function vecAdd(a: number[], b: number[]): number[] {
   return a.map((v, i) => v + b[i]);
 }
 
-function vecScale(s, v) {
+function vecScale(s: number, v: number[]): number[] {
   return v.map(x => s * x);
 }

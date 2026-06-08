@@ -1,5 +1,5 @@
-import { buildGLKMatrix } from './glk-matrix.mjs';
-import { gleveal }        from './gleval.mjs';
+import { buildGLKMatrix } from './glk-matrix';
+import { gleveal }        from './gleval';
 
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');

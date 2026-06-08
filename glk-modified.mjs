@@ -17,10 +17,10 @@
  *   W^{-1} = diag((2i+1)/2)
  */
 
-import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
-import { legendreDWeight }             from './legendre-endpoints.mjs';
-import { gleveal }                     from './gleval.mjs';
-import { glWeights }                   from './legendre.mjs';
+import { buildGLKMatrix, applyMatrix } from './glk-matrix';
+import { legendreDWeight }             from './legendre-endpoints';
+import { gleveal }                     from './gleval';
+import { glWeights }                   from './legendre';
 
 // ---------------------------------------------------------------------------
 // D matrix: D[r][i] encodes endpoint evaluation / differentiation of P_i

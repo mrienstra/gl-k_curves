@@ -12,9 +12,11 @@
  */
 
 /** One averaging step: m points → m+1 points. */
-export function averageStep(pts) {
+export function averageStep(pts: number[]): number[];
+export function averageStep(pts: number[][]): number[][];
+export function averageStep(pts: (number | number[])[]): (number | number[])[] {
   const m = pts.length;
-  const out = new Array(m + 1);
+  const out: (number | number[])[] = new Array(m + 1);
   out[0] = pts[0];
   for (let i = 1; i < m; i++) {
     out[i] = mid(pts[i - 1], pts[i]);
@@ -24,15 +26,17 @@ export function averageStep(pts) {
 }
 
 /** Apply k averaging steps to a polygon. k=0 returns pts unchanged. */
-export function applyAveraging(pts, k) {
-  let cur = pts;
-  for (let i = 0; i < k; i++) cur = averageStep(cur);
+export function applyAveraging(pts: number[], k: number): number[];
+export function applyAveraging(pts: number[][], k: number): number[][];
+export function applyAveraging(pts: (number | number[])[], k: number): (number | number[])[] {
+  let cur: (number | number[])[] = pts;
+  for (let i = 0; i < k; i++) cur = averageStep(cur as number[]);
   return cur;
 }
 
 // ---- midpoint helper (works for scalars and numeric arrays) ----------------
 
-function mid(a, b) {
-  if (Array.isArray(a)) return a.map((v, i) => (v + b[i]) * 0.5);
-  return (a + b) * 0.5;
+function mid(a: number | number[], b: number | number[]): number | number[] {
+  if (Array.isArray(a)) return (a as number[]).map((v, i) => (v + (b as number[])[i]) * 0.5);
+  return ((a as number) + (b as number)) * 0.5;
 }

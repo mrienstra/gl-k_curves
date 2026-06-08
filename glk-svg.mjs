@@ -14,12 +14,12 @@
  * M=8 is visually indistinguishable from exact at any practical resolution.
  */
 
-import { gleveal }                     from './gleval.mjs';
-import { buildGLKMatrix, applyMatrix } from './glk-matrix.mjs';
+import { gleveal }                     from './gleval';
+import { buildGLKMatrix, applyMatrix } from './glk-matrix';
 import { buildModifiedGLKMatrix,
          applyTangentOperator }        from './glk-modified.mjs';
 import { buildGLKMatrixFractional }    from './glk-fractional.mjs';
-import { glWeights }                   from './legendre.mjs';
+import { glWeights }                   from './legendre';
 import { findSeamT, cosSeamT }         from './glk-closed.mjs';
 
 // ---------------------------------------------------------------------------

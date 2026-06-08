@@ -4,11 +4,11 @@
  * All results below are analytically verifiable by hand.
  */
 
-import { legendreP, legendreAndDeriv, glNodes, glWeights } from './legendre.mjs';
-import { gleveal } from './gleval.mjs';
-import { applyAveraging } from './gl-averaging.mjs';
-import { gl0LegendreCoeffs } from './gl0-legendre.mjs';
-import { legendreReduce } from './legendrereduce.mjs';
+import { legendreP, legendreAndDeriv, glNodes, glWeights } from './legendre';
+import { gleveal } from './gleval';
+import { applyAveraging } from './gl-averaging';
+import { gl0LegendreCoeffs } from './gl0-legendre';
+import { legendreReduce } from './legendrereduce';
 
 let passed = 0, failed = 0;
 

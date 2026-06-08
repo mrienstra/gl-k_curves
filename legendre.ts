@@ -10,7 +10,7 @@
  *   P_0 = 1,  P_1 = t
  *   P_j = ((2j-1)/j) * t * P_{j-1}  -  ((j-1)/j) * P_{j-2}
  */
-export function legendreAndDeriv(n, t) {
+export function legendreAndDeriv(n: number, t: number): { p: number; dp: number } {
   if (n === 0) return { p: 1, dp: 0 };
   if (n === 1) return { p: t, dp: 1 };
 
@@ -29,7 +29,7 @@ export function legendreAndDeriv(n, t) {
 }
 
 /** Evaluate just P_n(t). */
-export function legendreP(n, t) {
+export function legendreP(n: number, t: number): number {
   return legendreAndDeriv(n, t).p;
 }
 
@@ -38,11 +38,11 @@ export function legendreP(n, t) {
  * Uses Newton's method starting from Chebyshev initial guesses.
  * Nodes are returned in ascending order.
  */
-export function glNodes(n) {
+export function glNodes(n: number): number[] {
   if (n === 0) return [];
   if (n === 1) return [0];
 
-  const nodes = new Array(n);
+  const nodes = new Array<number>(n);
 
   // The roots of P_n are symmetric about 0; iterate over the left half
   // and mirror.  For odd n the middle root is exactly 0.
@@ -72,7 +72,7 @@ export function glNodes(n) {
  * Formula:  w_i = 2 / ((1 - τ_i²) * (P_n'(τ_i))²)
  * Weights are returned in the same order as glNodes(n).
  */
-export function glWeights(n) {
+export function glWeights(n: number): number[] {
   const nodes = glNodes(n);
   return nodes.map(t => {
     const { dp } = legendreAndDeriv(n, t);

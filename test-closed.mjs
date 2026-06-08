@@ -14,9 +14,9 @@
  * GL-0, GL-1, GL-2 and print the gap (distance from p0 = [275,525]).
  */
 
-import { glNodes }     from './legendre.mjs';
-import { glkCoeffs }   from './glk-curve.mjs';
-import { gleveal }     from './gleval.mjs';
+import { glNodes }     from './legendre';
+import { glkCoeffs }   from './glk-curve';
+import { gleveal }     from './gleval';
 
 // ── input ────────────────────────────────────────────────────────────────────
 const pts   = [[275,525],[25,275],[275,25],[525,275],[275,525]];
