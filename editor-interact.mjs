@@ -11,9 +11,11 @@ import {
 } from "./editor-state.mjs";
 import { draw } from "./editor-draw.mjs";
 
-function nearestEdge(x, y, threshold = 15) {
+// Returns { s, i, px, py } for the closest polyline edge within threshold,
+// or null if none / ambiguous (two edges within ambiguityMargin of each other).
+function nearestEdge(x, y, threshold = 15, ambiguityMargin = 5) {
   const { segments } = state;
-  let best = null, bestD = Infinity;
+  let best = null, bestD = Infinity, secondBestD = Infinity;
   for (let s = 0; s < segments.length; s++) {
     const pts = segments[s];
     for (let i = 0; i < pts.length - 1; i++) {
@@ -23,10 +25,15 @@ function nearestEdge(x, y, threshold = 15) {
       const len2 = dx * dx + dy * dy;
       if (len2 === 0) continue;
       const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2));
-      const d = Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
-      if (d < threshold && d < bestD) { best = { s, i }; bestD = d; }
+      const px = ax + t * dx, py = ay + t * dy;
+      const d = Math.hypot(x - px, y - py);
+      if (d < threshold) {
+        if (d < bestD) { secondBestD = bestD; best = { s, i, px, py }; bestD = d; }
+        else if (d < secondBestD) { secondBestD = d; }
+      }
     }
   }
+  if (best && secondBestD - bestD < ambiguityMargin) return null;
   return best;
 }
 
@@ -89,25 +96,28 @@ function bindCanvasEvents(canvas) {
     }
     // Hover update — only redraw on change
     const hit = nearestPoint(x, y);
+    const edge = hit ? null : nearestEdge(x, y, 15, 0); // no ambiguity check for preview
     const newKey = hit ? selKey(hit.s, hit.i) : null;
     const oldKey = state.hover ? selKey(state.hover.s, state.hover.i) : null;
-    if (newKey !== oldKey) {
+    const edgeMoved = edge && state.hoverEdge && (
+      Math.abs(edge.px - state.hoverEdge.px) > 0.5 ||
+      Math.abs(edge.py - state.hoverEdge.py) > 0.5
+    );
+    const edgeKeyChanged = (edge?.s !== state.hoverEdge?.s) || (edge?.i !== state.hoverEdge?.i);
+    if (newKey !== oldKey || edgeKeyChanged || edgeMoved) {
       state.hover = hit;
-      canvas.style.cursor = hit ? "pointer" : "crosshair";
+      state.hoverEdge = edge;
+      canvas.style.cursor = hit ? "pointer" : edge ? "none" : "crosshair";
       draw();
     }
   });
 
   canvas.addEventListener("mouseleave", () => {
-    if (state.hover) {
-      state.hover = null;
-      canvas.style.cursor = "crosshair";
-      draw();
-    }
-    if (state.rectSelect) {
-      state.rectSelect = null;
-      draw();
-    }
+    let dirty = false;
+    if (state.hover) { state.hover = null; canvas.style.cursor = "crosshair"; dirty = true; }
+    if (state.hoverEdge) { state.hoverEdge = null; dirty = true; }
+    if (state.rectSelect) { state.rectSelect = null; dirty = true; }
+    if (dirty) draw();
   });
 
   canvas.addEventListener("mouseup", (e) => {

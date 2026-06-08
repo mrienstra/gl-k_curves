@@ -17,6 +17,7 @@ export const state = {
   drag: null, // { s, i } or null — point being dragged
   selection: new Set(), // Set of "s:i" strings — selected points
   hover: null, // { s, i } or null — point under cursor
+  hoverEdge: null, // { s, i, px, py } or null — edge under cursor (insert preview)
   rectSelect: null, // { x0, y0, x1, y1 } or null — marquee in progress
   dragDelta: null, // { lastX, lastY } for multi-point move
   mouseDownPos: null,

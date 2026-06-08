@@ -149,6 +149,16 @@ export function draw() {
     for (let s = 0; s < segments.length; s++)
       drawPoints(segments[s], s, s === activeSeg);
 
+  // Edge-insert preview: small open circle at projected position
+  const { hoverEdge } = state;
+  if (hoverEdge && !state.drag && !rectSelect) {
+    ctx.beginPath();
+    ctx.arc(hoverEdge.px, hoverEdge.py, 5, 0, Math.PI * 2);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   if (rectSelect) {
     const rx = Math.min(rectSelect.x0, rectSelect.x1);
     const ry = Math.min(rectSelect.y0, rectSelect.y1);
