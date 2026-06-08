@@ -13,6 +13,7 @@ import {
   commitSnapshot,
   undo,
   redo,
+  curveStyles,
 } from "./editor-state.mjs";
 import { draw } from "./editor-draw.mjs";
 
@@ -420,11 +421,67 @@ function bindKeyEvents() {
   });
 }
 
+// ── style modal ──────────────────────────────────────────────────────────────
+function bindStyleModal() {
+  const modal = document.getElementById("styleModal");
+  const titleEl = document.getElementById("styleModalTitle");
+  const colorIn = document.getElementById("styleColor");
+  const widthIn = document.getElementById("styleWidth");
+  const dashIn  = document.getElementById("styleDash");
+
+  // Which style object is currently being edited
+  let target = null;
+
+  function open(style, label) {
+    target = style;
+    titleEl.textContent = label + " style";
+    colorIn.value = style.color;
+    widthIn.value = style.width;
+    dashIn.value  = style.dash.join(", ");
+    modal.style.display = "flex";
+  }
+
+  document.getElementById("btnStyle0").addEventListener("click", () => open(curveStyles.gl0, "GL-0"));
+
+  document.getElementById("btnStyleClose").addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+
+  colorIn.addEventListener("input", (e) => {
+    if (!target) return;
+    target.color = e.target.value;
+    draw();
+  });
+
+  widthIn.addEventListener("input", (e) => {
+    if (!target) return;
+    const v = parseFloat(e.target.value);
+    if (v > 0) { target.width = v; draw(); }
+  });
+
+  dashIn.addEventListener("input", (e) => {
+    if (!target) return;
+    const raw = e.target.value.trim();
+    if (raw === "") {
+      target.dash = [];
+    } else {
+      const parts = raw.split(",").map((s) => parseFloat(s.trim()));
+      if (parts.some((n) => isNaN(n) || n < 0)) return; // invalid — wait for more input
+      target.dash = parts;
+    }
+    draw();
+  });
+}
+
 // ── entry point ──────────────────────────────────────────────────────────────
 export function setupInteraction(canvas) {
   bindCanvasEvents(canvas);
   bindButtonEvents(canvas);
   bindKeyEvents();
+  bindStyleModal();
   document.getElementById("sldK").addEventListener("input", draw);
   document.getElementById("sldEta").addEventListener("input", draw);
   document.getElementById("sldAlpha").addEventListener("input", draw);

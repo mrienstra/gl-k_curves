@@ -80,6 +80,77 @@
       cursor: default;
     }
 
+    .curve-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 6px 0 2px;
+    }
+
+    .curve-row label { margin: 0; }
+
+    .style-btn {
+      width: auto;
+      margin: 0;
+      padding: 1px 5px;
+      font-size: 11px;
+      opacity: 0.5;
+      flex-shrink: 0;
+    }
+
+    .style-btn:hover { opacity: 1; }
+
+    #styleModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #styleModalBox {
+      background: #222;
+      border: 1px solid #555;
+      padding: 18px 20px;
+      min-width: 200px;
+    }
+
+    #styleModalBox h3 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .modal-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .modal-row input[type=color] {
+      width: 44px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid #555;
+      background: none;
+      cursor: pointer;
+    }
+
+    .modal-row input[type=number],
+    .modal-row input[type=text] {
+      width: 72px;
+      background: #333;
+      color: #ddd;
+      border: 1px solid #555;
+      padding: 2px 5px;
+      font: inherit;
+    }
+
     p {
       font-size: 11px;
       color: #888;
@@ -100,7 +171,10 @@
     <p>Click to add points.<br>Drag to move.<br>Dbl-click to remove.<br>Click point to select.<br>Shift/⌘ click to
       multi-select.<br>Drag empty area to marquee.<br>Delete/⌫ to remove selected.</p>
 
-    <label><input type="checkbox" id="chk0" checked> GL-0</label>
+    <div class="curve-row">
+      <label><input type="checkbox" id="chk0" checked> GL-0</label>
+      <button class="style-btn" id="btnStyle0">⚙</button>
+    </div>
     <label><input type="checkbox" id="chk1" checked> GL-1</label>
     <label><input type="checkbox" id="chk2" checked> GL-2</label>
     <label><input type="checkbox" id="chkM0"> mod GL-0</label>
@@ -152,6 +226,25 @@
   <div id="main">
     <canvas id="c"></canvas>
     <div id="svgPreview" style="display:none"></div>
+  </div>
+
+  <div id="styleModal">
+    <div id="styleModalBox">
+      <h3 id="styleModalTitle">Style</h3>
+      <div class="modal-row">
+        <label for="styleColor">Color</label>
+        <input type="color" id="styleColor">
+      </div>
+      <div class="modal-row">
+        <label for="styleWidth">Width</label>
+        <input type="number" id="styleWidth" min="0.5" max="20" step="0.5">
+      </div>
+      <div class="modal-row">
+        <label for="styleDash">Dash</label>
+        <input type="text" id="styleDash" placeholder="e.g. 4,4">
+      </div>
+      <button id="btnStyleClose">Close</button>
+    </div>
   </div>
 
   <script type="module" src="editor.mjs"></script>

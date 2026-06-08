@@ -5,7 +5,7 @@ import {
   sampleModifiedGLKFractional,
 } from "./glk-fractional.mjs";
 import { buildSVG } from "./glk-svg.mjs";
-import { state, isSelected } from "./editor-state.mjs";
+import { state, isSelected, curveStyles } from "./editor-state.mjs";
 
 let canvas, ctx;
 export function initDraw(c, context) {
@@ -14,7 +14,7 @@ export function initDraw(c, context) {
 }
 
 // ── primitives ───────────────────────────────────────────────────────────────
-function drawCurve(samples, color, width = 2) {
+function drawCurve(samples, color, width = 2, dash = []) {
   if (samples.length < 2) return;
   ctx.beginPath();
   ctx.moveTo(samples[0][0], samples[0][1]);
@@ -22,7 +22,9 @@ function drawCurve(samples, color, width = 2) {
     ctx.lineTo(samples[i][0], samples[i][1]);
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
+  ctx.setLineDash(dash);
   ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 function drawPolygon(pts) {
@@ -121,7 +123,7 @@ export function draw() {
     if (document.getElementById("chkPoly").checked) drawPolygon(pts);
     try {
       if (document.getElementById("chk0").checked)
-        drawCurve(sampleGLK(pts, 0, N), "#f97");
+        drawCurve(sampleGLK(pts, 0, N), curveStyles.gl0.color, curveStyles.gl0.width, curveStyles.gl0.dash);
       if (document.getElementById("chk1").checked && pts.length >= 2)
         drawCurve(sampleGLK(pts, 1, N), "#7bf");
       if (document.getElementById("chk2").checked && pts.length >= 3)

@@ -34,6 +34,12 @@ export const toggleSel = (s, i) => {
 };
 export const clearSel = () => state.selection.clear();
 
+// ── curve styles ─────────────────────────────────────────────────────────────
+// color must be a full 6-digit hex so <input type="color"> can read it back.
+export const curveStyles = {
+  gl0: { color: "#ff9977", width: 2, dash: [] },
+};
+
 // ── undo / redo ──────────────────────────────────────────────────────────────
 const undoStack = [];
 const redoStack = [];
