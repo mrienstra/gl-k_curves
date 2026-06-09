@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:render": "vite build --mode render-lib && node_modules/.bin/esbuild dist/glk-render.js --bundle=false --minify --outfile=dist/glk-render.min.js",
     "preview": "vite preview",
     "test": "tsx sanity-check.ts"
   },
