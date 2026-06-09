@@ -15,6 +15,7 @@ import {
   undo,
   redo,
   getClosedOpts,
+  SegmentOpts,
 } from "./editor-state";
 import { draw } from "./editor-draw";
 import {
@@ -25,11 +26,16 @@ import {
   applyVisibility,
 } from "./editor-styles";
 
+// ── local types ───────────────────────────────────────────────────────────────
+
+type EdgeHit = { s: number; i: number; px: number; py: number };
+type PointHit = { s: number; i: number };
+
 // Returns { s, i, px, py } for the closest polyline edge within threshold,
 // or null if none / ambiguous (two edges within ambiguityMargin of each other).
-function nearestEdge(x, y, threshold = 15, ambiguityMargin = 5) {
+function nearestEdge(x: number, y: number, threshold = 15, ambiguityMargin = 5): EdgeHit | null {
   const { segments } = state;
-  let best = null, bestD = Infinity, secondBestD = Infinity;
+  let best: EdgeHit | null = null, bestD = Infinity, secondBestD = Infinity;
   for (let s = 0; s < segments.length; s++) {
     const pts = segments[s];
     for (let i = 0; i < pts.length - 1; i++) {
@@ -51,10 +57,9 @@ function nearestEdge(x, y, threshold = 15, ambiguityMargin = 5) {
   return best;
 }
 
-function nearestPoint(x, y, radius = 12) {
+function nearestPoint(x: number, y: number, radius = 12): PointHit | null {
   const { segments } = state;
-  let best = null,
-    bestD = Infinity;
+  let best: PointHit | null = null, bestD = Infinity;
   for (let s = 0; s < segments.length; s++)
     for (let i = 0; i < segments[s].length; i++) {
       const d = Math.hypot(segments[s][i][0] - x, segments[s][i][1] - y);
@@ -67,13 +72,12 @@ function nearestPoint(x, y, radius = 12) {
 }
 
 // ── canvas events ────────────────────────────────────────────────────────────
-function bindCanvasEvents(canvas) {
+function bindCanvasEvents(canvas: HTMLCanvasElement): void {
   // Snapshot taken at drag-start; committed to undo stack only if the point moved.
-  let preDragSnapshot = null;
+  let preDragSnapshot: ReturnType<typeof captureSnapshot> | null = null;
 
   canvas.addEventListener("mousedown", (e) => {
-    const x = e.offsetX,
-      y = e.offsetY;
+    const x = e.offsetX, y = e.offsetY;
     const hit = nearestPoint(x, y);
     state.mouseDownPos = { x, y };
     if (hit) {
@@ -88,12 +92,10 @@ function bindCanvasEvents(canvas) {
   });
 
   canvas.addEventListener("mousemove", (e) => {
-    const x = e.offsetX,
-      y = e.offsetY;
+    const x = e.offsetX, y = e.offsetY;
     if (state.drag) {
       if (isSelected(state.drag.s, state.drag.i) && state.selection.size > 1) {
-        const dx = x - state.dragDelta.lastX,
-          dy = y - state.dragDelta.lastY;
+        const dx = x - state.dragDelta!.lastX, dy = y - state.dragDelta!.lastY;
         for (const k of state.selection) {
           const [ss, si] = k.split(":").map(Number);
           const pt = state.segments[ss][si];
@@ -162,7 +164,7 @@ function bindCanvasEvents(canvas) {
         draw();
       } else {
         // Actual move — commit the pre-drag snapshot
-        commitSnapshot(preDragSnapshot);
+        commitSnapshot(preDragSnapshot!);
         preDragSnapshot = null;
       }
       state.drag = null;
@@ -208,10 +210,10 @@ function bindCanvasEvents(canvas) {
     if (state.segments[hit.s].length === 0 && state.segments.length > 1) {
       const s = hit.s;
       state.closed.delete(s);
-      const newClosed = new Set();
+      const newClosed = new Set<number>();
       for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
       state.closed = newClosed;
-      const newClosedOpts = new Map();
+      const newClosedOpts = new Map<number, SegmentOpts>();
       for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx - 1 : idx, o);
       state.closedOpts = newClosedOpts;
       state.segments.splice(s, 1);
@@ -222,8 +224,8 @@ function bindCanvasEvents(canvas) {
 }
 
 // ── sidebar buttons ──────────────────────────────────────────────────────────
-function bindButtonEvents(canvas) {
-  document.getElementById("btnSplit").addEventListener("click", () => {
+function bindButtonEvents(canvas: HTMLCanvasElement): void {
+  document.getElementById("btnSplit")!.addEventListener("click", () => {
     const selArr = [...state.selection].map((k) => {
       const [s, i] = k.split(":").map(Number);
       return { s, i };
@@ -237,10 +239,10 @@ function bindButtonEvents(canvas) {
       pushHistory();
       // Splitting always opens the segment; shift closed indices above s up by 1
       state.closed.delete(s);
-      const newClosed = new Set();
+      const newClosed = new Set<number>();
       for (const idx of state.closed) newClosed.add(idx > s ? idx + 1 : idx);
       state.closed = newClosed;
-      const newClosedOpts = new Map();
+      const newClosedOpts = new Map<number, SegmentOpts>();
       for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx + 1 : idx, o);
       state.closedOpts = newClosedOpts;
       state.segments.splice(s, 1, pts.slice(0, i + 1), pts.slice(i));
@@ -290,10 +292,10 @@ function bindButtonEvents(canvas) {
       // Both source segments lose their closed state; shift indices above hi down by 1
       state.closed.delete(s1);
       state.closed.delete(s2);
-      const newClosed = new Set();
+      const newClosed = new Set<number>();
       for (const idx of state.closed) newClosed.add(idx > hi ? idx - 1 : idx);
       state.closed = newClosed;
-      const newClosedOpts = new Map();
+      const newClosedOpts = new Map<number, SegmentOpts>();
       for (const [idx, o] of state.closedOpts) if (idx !== s1 && idx !== s2) newClosedOpts.set(idx > hi ? idx - 1 : idx, o);
       state.closedOpts = newClosedOpts;
       state.segments.splice(hi, 1);
@@ -304,22 +306,22 @@ function bindButtonEvents(canvas) {
     }
   });
 
-  document.getElementById("btnNewSeg").addEventListener("click", () => {
+  document.getElementById("btnNewSeg")!.addEventListener("click", () => {
     pushHistory();
     state.segments.push([]);
     state.activeSeg = state.segments.length - 1;
     draw();
   });
 
-  document.getElementById("btnClear").addEventListener("click", () => {
+  document.getElementById("btnClear")!.addEventListener("click", () => {
     pushHistory();
     if (state.segments.length > 1) {
       const s = state.activeSeg;
       state.closed.delete(s);
-      const newClosed = new Set();
+      const newClosed = new Set<number>();
       for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
       state.closed = newClosed;
-      const newClosedOpts = new Map();
+      const newClosedOpts = new Map<number, SegmentOpts>();
       for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx - 1 : idx, o);
       state.closedOpts = newClosedOpts;
       state.segments.splice(s, 1);
@@ -333,7 +335,7 @@ function bindButtonEvents(canvas) {
     draw();
   });
 
-  document.getElementById("btnReset").addEventListener("click", () => {
+  document.getElementById("btnReset")!.addEventListener("click", () => {
     pushHistory();
     state.segments = [
       [
@@ -346,36 +348,42 @@ function bindButtonEvents(canvas) {
       ],
     ];
     state.activeSeg = 0;
-    state.closed = new Set();
-    state.closedOpts = new Map();
+    state.closed = new Set<number>();
+    state.closedOpts = new Map<number, SegmentOpts>();
     clearSel();
     draw();
   });
 
-  document.getElementById("btnCopy").addEventListener("click", () => {
+  document.getElementById("btnCopy")!.addEventListener("click", () => {
     const rounded = state.segments.map((seg) =>
       seg.map(([x, y]) => [Math.round(x), Math.round(y)]),
     );
-    const raw = parseFloat(document.getElementById("sldEta").value);
+    const raw = parseFloat((document.getElementById("sldEta") as HTMLInputElement).value);
     const styles = collectStyles();
     const visibility = collectVisibility();
     const hasEta = raw !== 0;
-    let payload;
+    let payload: unknown;
     if (!hasEta && !styles && !visibility) {
       payload = rounded;
     } else {
-      payload = { segments: rounded };
-      if (hasEta) payload.eta = raw;
-      if (styles) payload.styles = styles;
-      if (visibility) payload.visibility = visibility;
+      const obj: {
+        segments: number[][][];
+        eta?: number;
+        styles?: Record<string, Record<string, unknown>>;
+        visibility?: Record<string, boolean>;
+      } = { segments: rounded };
+      if (hasEta) obj.eta = raw;
+      if (styles) obj.styles = styles;
+      if (visibility) obj.visibility = visibility;
+      payload = obj;
     }
     navigator.clipboard
       .writeText(JSON.stringify(payload))
       .catch(() => prompt("Copy this JSON:", JSON.stringify(payload)));
   });
 
-  document.getElementById("btnPaste").addEventListener("click", async () => {
-    let text;
+  document.getElementById("btnPaste")!.addEventListener("click", async () => {
+    let text: string | null;
     try {
       text = await navigator.clipboard.readText();
     } catch {
@@ -384,8 +392,7 @@ function bindButtonEvents(canvas) {
     if (!text) return;
     try {
       const data = JSON.parse(text);
-      let segs,
-        etaOverride = null;
+      let segs: number[][][], etaOverride: number | null = null;
       if (Array.isArray(data)) {
         segs = Array.isArray(data[0][0]) ? data : [data];
       } else {
@@ -397,7 +404,7 @@ function bindButtonEvents(canvas) {
       state.activeSeg = 0;
       clearSel();
       if (etaOverride !== null)
-        document.getElementById("sldEta").value = etaOverride;
+        (document.getElementById("sldEta") as HTMLInputElement).value = String(etaOverride);
       applyStyles(data.styles);
       applyVisibility(data.visibility);
       draw();
@@ -408,48 +415,44 @@ function bindButtonEvents(canvas) {
     }
   });
 
-  document
-    .getElementById("btnImportSVG")
-    .addEventListener("click", () =>
-      document.getElementById("fileSVGImport").click(),
-    );
-  document
-    .getElementById("fileSVGImport")
-    .addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const segs = svgFileToSegments(await file.text(), {
-        width: canvas.clientWidth,
-        height: canvas.clientHeight,
-      });
-      e.target.value = "";
-      if (!segs) {
-        alert("No supported path found in SVG.");
-        return;
-      }
-      pushHistory();
-      state.segments = segs;
-      state.activeSeg = 0;
-      clearSel();
-      draw();
+  document.getElementById("btnImportSVG")!.addEventListener("click", () =>
+    (document.getElementById("fileSVGImport") as HTMLInputElement).click(),
+  );
+  document.getElementById("fileSVGImport")!.addEventListener("change", async (e) => {
+    const file = (e.target as HTMLInputElement).files![0];
+    if (!file) return;
+    const segs = svgFileToSegments(await file.text(), {
+      width: canvas.clientWidth,
+      height: canvas.clientHeight,
     });
+    (e.target as HTMLInputElement).value = "";
+    if (!segs) {
+      alert("No supported path found in SVG.");
+      return;
+    }
+    pushHistory();
+    state.segments = segs;
+    state.activeSeg = 0;
+    clearSel();
+    draw();
+  });
 
-  document.getElementById("btnSVG").addEventListener("click", () => {
-    const rawEta = parseFloat(document.getElementById("sldEta").value);
+  document.getElementById("btnSVG")!.addEventListener("click", () => {
+    const rawEta = parseFloat((document.getElementById("sldEta") as HTMLInputElement).value);
     const svg = buildSVG(state.segments, {
       width: canvas.clientWidth,
       height: canvas.clientHeight,
-      showGL0: document.getElementById("chk0").checked,
-      showGL1: document.getElementById("chk1").checked,
-      showGL2: document.getElementById("chk2").checked,
-      showM1: document.getElementById("chkM1").checked,
-      showFrac: document.getElementById("chkFrac").checked,
-      showFracMod: document.getElementById("chkFracMod").checked,
-      showPoly: document.getElementById("chkPoly").checked,
-      kFrac: parseFloat(document.getElementById("sldK").value),
+      showGL0: (document.getElementById("chk0") as HTMLInputElement).checked,
+      showGL1: (document.getElementById("chk1") as HTMLInputElement).checked,
+      showGL2: (document.getElementById("chk2") as HTMLInputElement).checked,
+      showM1: (document.getElementById("chkM1") as HTMLInputElement).checked,
+      showFrac: (document.getElementById("chkFrac") as HTMLInputElement).checked,
+      showFracMod: (document.getElementById("chkFracMod") as HTMLInputElement).checked,
+      showPoly: (document.getElementById("chkPoly") as HTMLInputElement).checked,
+      kFrac: parseFloat((document.getElementById("sldK") as HTMLInputElement).value),
       eta: rawEta === 0 ? null : rawEta,
-      alpha: parseFloat(document.getElementById("sldAlpha").value),
-      styles: collectStyles() ?? {},
+      alpha: parseFloat((document.getElementById("sldAlpha") as HTMLInputElement).value),
+      styles: collectStyles() as any,
       closedSet: state.closed,
       closedOptsMap: state.closedOpts,
     });
@@ -463,7 +466,7 @@ function bindButtonEvents(canvas) {
 }
 
 // ── keyboard ─────────────────────────────────────────────────────────────────
-function bindKeyEvents() {
+function bindKeyEvents(): void {
   document.addEventListener("keydown", (e) => {
     if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -493,10 +496,10 @@ function bindKeyEvents() {
       state.segments[s].splice(i, 1);
       if (state.segments[s].length === 0 && state.segments.length > 1) {
         state.closed.delete(s);
-        const newClosed = new Set();
+        const newClosed = new Set<number>();
         for (const idx of state.closed) newClosed.add(idx > s ? idx - 1 : idx);
         state.closed = newClosed;
-        const newClosedOpts = new Map();
+        const newClosedOpts = new Map<number, SegmentOpts>();
         for (const [idx, o] of state.closedOpts) if (idx !== s) newClosedOpts.set(idx > s ? idx - 1 : idx, o);
         state.closedOpts = newClosedOpts;
         state.segments.splice(s, 1);
@@ -509,18 +512,18 @@ function bindKeyEvents() {
 }
 
 // ── closed-path options modal ─────────────────────────────────────────────────
-function bindClosedOptsModal() {
-  const modal       = document.getElementById("closedOptsModal");
-  const inCopies    = document.getElementById("closedOptsCopies");
-  const inFull      = document.getElementById("closedOptsShowFull");
-  const inSeamTAuto = document.getElementById("closedOptsSeamTAuto");
-  const inSeamT     = document.getElementById("closedOptsSeamT");
-  const seamTVal    = document.getElementById("closedOptsSeamTVal");
-  const autoVals    = document.getElementById("closedOptsSeamTAutoVals");
-  let segIdx = null;
-  let autoSeamTs = null; // { k0, k1, k2 } — computed on modal open
+function bindClosedOptsModal(): void {
+  const modal       = document.getElementById("closedOptsModal") as HTMLElement;
+  const inCopies    = document.getElementById("closedOptsCopies") as HTMLInputElement;
+  const inFull      = document.getElementById("closedOptsShowFull") as HTMLInputElement;
+  const inSeamTAuto = document.getElementById("closedOptsSeamTAuto") as HTMLInputElement;
+  const inSeamT     = document.getElementById("closedOptsSeamT") as HTMLInputElement;
+  const seamTVal    = document.getElementById("closedOptsSeamTVal") as HTMLElement;
+  const autoVals    = document.getElementById("closedOptsSeamTAutoVals") as HTMLElement;
+  let segIdx: number | null = null;
+  let autoSeamTs: { k0: number; k1: number; k2: number } | null = null;
 
-  function updateSeamTDisplay() {
+  function updateSeamTDisplay(): void {
     if (inSeamTAuto.checked) {
       seamTVal.textContent = "auto";
       inSeamT.disabled = true;
@@ -538,11 +541,11 @@ function bindClosedOptsModal() {
     }
   }
 
-  document.getElementById("btnClosedOpts").addEventListener("click", () => {
+  document.getElementById("btnClosedOpts")!.addEventListener("click", () => {
     segIdx = state.activeSeg;
     const opts = getClosedOpts(segIdx);
-    inCopies.value      = opts.copies;
-    inFull.checked      = opts.showFull;
+    inCopies.value      = String(opts.copies ?? 3);
+    inFull.checked      = opts.showFull ?? false;
     const hasSeamT      = opts.seamT != null;
     inSeamTAuto.checked = !hasSeamT;
 
@@ -561,16 +564,16 @@ function bindClosedOptsModal() {
 
     // Pre-fill slider: use stored value if manual, else the k1 auto value
     if (hasSeamT) {
-      inSeamT.value = opts.seamT;
+      inSeamT.value = String(opts.seamT!);
     } else if (autoSeamTs) {
-      inSeamT.value = autoSeamTs.k1;
+      inSeamT.value = String(autoSeamTs.k1);
     }
 
     updateSeamTDisplay();
     modal.style.display = "flex";
   });
 
-  document.getElementById("btnClosedOptsClose").addEventListener("click", () => {
+  document.getElementById("btnClosedOptsClose")!.addEventListener("click", () => {
     modal.style.display = "none";
   });
 
@@ -578,14 +581,14 @@ function bindClosedOptsModal() {
     if (e.target === modal) modal.style.display = "none";
   });
 
-  function applyOpts() {
+  function applyOpts(): void {
     if (segIdx === null) return;
     let copies = parseInt(inCopies.value, 10);
     if (!isFinite(copies) || copies < 3) copies = 3;
     if (copies % 2 === 0) copies++;
-    inCopies.value = copies; // snap display back to valid odd value
+    inCopies.value = String(copies); // snap display back to valid odd value
     const seamT = inSeamTAuto.checked ? null : parseFloat(inSeamT.value);
-    state.closedOpts.set(segIdx, { copies, showFull: inFull.checked, seamT });
+    state.closedOpts.set(segIdx!, { copies, showFull: inFull.checked, seamT });
     draw();
   }
 
@@ -593,7 +596,7 @@ function bindClosedOptsModal() {
   inFull.addEventListener("change", applyOpts);
   inSeamTAuto.addEventListener("change", () => {
     // When switching auto → manual, pre-fill slider with k1 auto value
-    if (!inSeamTAuto.checked && autoSeamTs) inSeamT.value = autoSeamTs.k1;
+    if (!inSeamTAuto.checked && autoSeamTs) inSeamT.value = String(autoSeamTs.k1);
     updateSeamTDisplay();
     applyOpts();
   });
@@ -601,15 +604,15 @@ function bindClosedOptsModal() {
 }
 
 // ── entry point ──────────────────────────────────────────────────────────────
-export function setupInteraction(canvas) {
+export function setupInteraction(canvas: HTMLCanvasElement): void {
   bindCanvasEvents(canvas);
   bindButtonEvents(canvas);
   bindKeyEvents();
   bindStyleModal();
   bindClosedOptsModal();
-  document.getElementById("sldK").addEventListener("input", draw);
-  document.getElementById("sldEta").addEventListener("input", draw);
-  document.getElementById("sldAlpha").addEventListener("input", draw);
+  (document.getElementById("sldK") as HTMLInputElement).addEventListener("input", draw);
+  (document.getElementById("sldEta") as HTMLInputElement).addEventListener("input", draw);
+  (document.getElementById("sldAlpha") as HTMLInputElement).addEventListener("input", draw);
   document
     .querySelectorAll("input[type=checkbox]")
     .forEach((el) => el.addEventListener("change", draw));

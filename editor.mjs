@@ -1,5 +1,5 @@
 import { initDraw, draw } from "./editor-draw";
-import { setupInteraction } from "./editor-interact.mjs";
+import { setupInteraction } from "./editor-interact";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
