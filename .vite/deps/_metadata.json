@@ -1,0 +1,15 @@
+{
+  "hash": "9851ad1b",
+  "configHash": "8583c42b",
+  "lockfileHash": "14124c7c",
+  "browserHash": "0bf21102",
+  "optimized": {
+    "svg-path-simplify": {
+      "src": "../../node_modules/svg-path-simplify/dist/svg-path-simplify.esm.js",
+      "file": "svg-path-simplify.js",
+      "fileHash": "64bef0d9",
+      "needsInterop": false
+    }
+  },
+  "chunks": {}
+}

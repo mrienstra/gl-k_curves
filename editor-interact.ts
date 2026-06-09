@@ -26,6 +26,25 @@ import {
   applyVisibility,
 } from "./editor-styles";
 
+// ── examples ──────────────────────────────────────────────────────────────────
+const EXAMPLES = import.meta.glob('./examples/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
+const EXAMPLE_KEYS = Object.keys(EXAMPLES).sort();
+
+export function applyExample(key: string): void {
+  const raw = EXAMPLES[key] as number[][][] | { segments: number[][][] };
+  let segs: number[][][];
+  if (Array.isArray(raw)) {
+    segs = Array.isArray(raw[0][0]) ? raw : [raw as unknown as number[][]];
+  } else {
+    segs = raw.segments;
+  }
+  state.segments = segs.map((seg) => seg.map(([x, y]) => [x, y] as [number, number]));
+  state.activeSeg = 0;
+  state.closed = new Set<number>();
+  state.closedOpts = new Map<number, SegmentOpts>();
+  clearSel();
+}
+
 // ── local types ───────────────────────────────────────────────────────────────
 
 type EdgeHit = { s: number; i: number; px: number; py: number };
@@ -335,22 +354,18 @@ function bindButtonEvents(canvas: HTMLCanvasElement): void {
     draw();
   });
 
-  document.getElementById("btnReset")!.addEventListener("click", () => {
+  const selExample = document.getElementById("selExample") as HTMLSelectElement;
+  for (const key of EXAMPLE_KEYS) {
+    const name = key.replace('./examples/', '').replace('.json', '');
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = name;
+    selExample.appendChild(opt);
+  }
+
+  document.getElementById("btnLoadExample")!.addEventListener("click", () => {
     pushHistory();
-    state.segments = [
-      [
-        [120, 350],
-        [200, 100],
-        [320, 280],
-        [440, 80],
-        [560, 300],
-        [660, 140],
-      ],
-    ];
-    state.activeSeg = 0;
-    state.closed = new Set<number>();
-    state.closedOpts = new Map<number, SegmentOpts>();
-    clearSel();
+    applyExample(selExample.value);
     draw();
   });
 
@@ -611,6 +626,7 @@ export function setupInteraction(canvas: HTMLCanvasElement): void {
   bindKeyEvents();
   bindStyleModal();
   bindClosedOptsModal();
+  if (EXAMPLE_KEYS.length > 0) applyExample(EXAMPLE_KEYS[0]);
   (document.getElementById("sldK") as HTMLInputElement).addEventListener("input", draw);
   (document.getElementById("sldEta") as HTMLInputElement).addEventListener("input", draw);
   (document.getElementById("sldAlpha") as HTMLInputElement).addEventListener("input", draw);
