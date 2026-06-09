@@ -20,6 +20,7 @@ import { buildModifiedGLKMatrix, applyTangentOperator } from './glk-modified';
 import { buildGLKMatrixFractional }                     from './glk-fractional';
 import { glWeights }                                    from './legendre';
 import { findSeamT, cosSeamT }                          from './glk-closed';
+import { svgPathSimplify }                              from 'svg-path-simplify';
 
 // ---------------------------------------------------------------------------
 // Legendre series differentiation
@@ -229,6 +230,7 @@ interface SVGOpts {
   closedSet?: Set<number>;
   closedCopies?: number;
   closedOptsMap?: Map<number, ClosedSegOpts> | null;
+  simplify?: boolean;
 }
 
 interface Group {
@@ -268,6 +270,7 @@ export function buildSVG(segments: number[][][], opts: SVGOpts = {}): string {
     closedSet     = new Set<number>(),
     closedCopies  = 3,
     closedOptsMap = null,
+    simplify      = false,
   } = opts;
 
   const { color: gl0Color    = '#f97', width: gl0Width    = 2,   dash: gl0Dash    = [] as number[] } = styles.gl0    ?? {};
@@ -499,5 +502,6 @@ export function buildSVG(segments: number[][][], opts: SVGOpts = {}): string {
     lines.push(`  </g>`);
   }
   lines.push('</svg>');
-  return lines.join('\n');
+  const svg = lines.join('\n');
+  return simplify ? svgPathSimplify(svg) as string : svg;
 }
