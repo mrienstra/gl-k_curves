@@ -159,7 +159,8 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
     if (dirty) draw();
   });
 
-  canvas.addEventListener("mouseup", (e) => {
+  document.addEventListener("mouseup", (e) => {
+    if (e.target !== canvas) return;
     const dist = state.mouseDownPos
       ? Math.hypot(
           e.offsetX - state.mouseDownPos.x,
@@ -354,20 +355,29 @@ function bindButtonEvents(canvas: HTMLCanvasElement): void {
     draw();
   });
 
-  const selExample = document.getElementById("selExample") as HTMLSelectElement;
+  const btnLoad    = document.getElementById("btnLoadExample") as HTMLButtonElement;
+  const exMenu     = document.getElementById("exampleMenu") as HTMLElement;
+  const exBackdrop = document.getElementById("exampleBackdrop") as HTMLElement;
+
+  function openExMenu():  void { exMenu.classList.add("open");    exBackdrop.classList.add("open");    }
+  function closeExMenu(): void { exMenu.classList.remove("open"); exBackdrop.classList.remove("open"); }
+
   for (const key of EXAMPLE_KEYS) {
     const name = key.replace('./examples/', '').replace('.json', '');
-    const opt = document.createElement("option");
-    opt.value = key;
-    opt.textContent = name;
-    selExample.appendChild(opt);
+    const item = document.createElement("div");
+    item.className = "example-item";
+    item.textContent = name;
+    item.addEventListener("click", () => {
+      pushHistory();
+      applyExample(key);
+      draw();
+      closeExMenu();
+    });
+    exMenu.appendChild(item);
   }
 
-  document.getElementById("btnLoadExample")!.addEventListener("click", () => {
-    pushHistory();
-    applyExample(selExample.value);
-    draw();
-  });
+  btnLoad.addEventListener("click", openExMenu);
+  exBackdrop.addEventListener("click", closeExMenu);
 
   document.getElementById("btnCopy")!.addEventListener("click", () => {
     const rounded = state.segments.map((seg) =>
