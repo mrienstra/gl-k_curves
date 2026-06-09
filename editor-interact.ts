@@ -50,6 +50,17 @@ export function applyExample(key: string): void {
 type EdgeHit = { s: number; i: number; px: number; py: number };
 type PointHit = { s: number; i: number };
 
+// ── viewport helpers ──────────────────────────────────────────────────────────
+function toWorld(sx: number, sy: number): [number, number] {
+  const { x, y, scale } = state.viewport;
+  return [(sx - x) / scale, (sy - y) / scale];
+}
+
+// ── pan state ─────────────────────────────────────────────────────────────────
+let panActive = false;
+let panStartSX = 0, panStartSY = 0, panStartVpX = 0, panStartVpY = 0;
+let spaceDown = false;
+
 // Returns { s, i, px, py } for the closest polyline edge within threshold,
 // or null if none / ambiguous (two edges within ambiguityMargin of each other).
 function nearestEdge(x: number, y: number, threshold = 15, ambiguityMargin = 5): EdgeHit | null {
@@ -95,10 +106,38 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
   // Snapshot taken at drag-start; committed to undo stack only if the point moved.
   let preDragSnapshot: ReturnType<typeof captureSnapshot> | null = null;
 
+  function hitRadius(): number { return 12 / state.viewport.scale; }
+  function edgeThreshold(): number { return 15 / state.viewport.scale; }
+  function updateCursor(): void {
+    canvas.style.cursor = panActive ? "grabbing" : spaceDown ? "grab"
+      : state.hover ? "pointer" : state.hoverEdge ? "none" : "crosshair";
+  }
+
+  // ── wheel zoom ──────────────────────────────────────────────────────────────
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const { x, y, scale } = state.viewport;
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newScale = Math.max(0.05, Math.min(50, scale * factor));
+    state.viewport.x = e.offsetX - (e.offsetX - x) * (newScale / scale);
+    state.viewport.y = e.offsetY - (e.offsetY - y) * (newScale / scale);
+    state.viewport.scale = newScale;
+    draw();
+  }, { passive: false });
+
   canvas.addEventListener("mousedown", (e) => {
-    const x = e.offsetX, y = e.offsetY;
-    const hit = nearestPoint(x, y);
-    state.mouseDownPos = { x, y };
+    // Middle mouse or space+drag → pan
+    if (e.button === 1 || (e.button === 0 && spaceDown)) {
+      e.preventDefault();
+      panActive = true;
+      panStartSX = e.offsetX; panStartSY = e.offsetY;
+      panStartVpX = state.viewport.x; panStartVpY = state.viewport.y;
+      updateCursor();
+      return;
+    }
+    const [x, y] = toWorld(e.offsetX, e.offsetY);
+    const hit = nearestPoint(x, y, hitRadius());
+    state.mouseDownPos = { x: e.offsetX, y: e.offsetY }; // screen coords
     if (hit) {
       preDragSnapshot = captureSnapshot();
       state.drag = hit;
@@ -111,7 +150,13 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
   });
 
   canvas.addEventListener("mousemove", (e) => {
-    const x = e.offsetX, y = e.offsetY;
+    if (panActive) {
+      state.viewport.x = panStartVpX + (e.offsetX - panStartSX);
+      state.viewport.y = panStartVpY + (e.offsetY - panStartSY);
+      draw();
+      return;
+    }
+    const [x, y] = toWorld(e.offsetX, e.offsetY);
     if (state.drag) {
       if (isSelected(state.drag.s, state.drag.i) && state.selection.size > 1) {
         const dx = x - state.dragDelta!.lastX, dy = y - state.dragDelta!.lastY;
@@ -134,8 +179,8 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
       return;
     }
     // Hover update — only redraw on change
-    const hit = nearestPoint(x, y);
-    const edge = hit ? null : nearestEdge(x, y, 15, 0); // no ambiguity check for preview
+    const hit = nearestPoint(x, y, hitRadius());
+    const edge = hit ? null : nearestEdge(x, y, edgeThreshold(), 0);
     const newKey = hit ? selKey(hit.s, hit.i) : null;
     const oldKey = state.hover ? selKey(state.hover.s, state.hover.i) : null;
     const edgeMoved = edge && state.hoverEdge && (
@@ -146,26 +191,26 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
     if (newKey !== oldKey || edgeKeyChanged || edgeMoved) {
       state.hover = hit;
       state.hoverEdge = edge;
-      canvas.style.cursor = hit ? "pointer" : edge ? "none" : "crosshair";
+      updateCursor();
       draw();
     }
   });
 
   canvas.addEventListener("mouseleave", () => {
+    panActive = false;
     let dirty = false;
-    if (state.hover) { state.hover = null; canvas.style.cursor = "crosshair"; dirty = true; }
+    if (state.hover) { state.hover = null; updateCursor(); dirty = true; }
     if (state.hoverEdge) { state.hoverEdge = null; dirty = true; }
     if (state.rectSelect) { state.rectSelect = null; dirty = true; }
     if (dirty) draw();
   });
 
   document.addEventListener("mouseup", (e) => {
+    if (panActive) { panActive = false; updateCursor(); return; }
     if (e.target !== canvas) return;
+    // Distance check in screen space — intentionally not world space
     const dist = state.mouseDownPos
-      ? Math.hypot(
-          e.offsetX - state.mouseDownPos.x,
-          e.offsetY - state.mouseDownPos.y,
-        )
+      ? Math.hypot(e.offsetX - state.mouseDownPos.x, e.offsetY - state.mouseDownPos.y)
       : Infinity;
 
     if (state.drag) {
@@ -194,13 +239,14 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
         if (state.selection.size > 0) {
           clearSel();
         } else {
-          const edge = nearestEdge(e.offsetX, e.offsetY);
+          const [wx, wy] = toWorld(e.offsetX, e.offsetY);
+          const edge = nearestEdge(wx, wy, edgeThreshold());
           pushHistory();
           if (edge) {
-            state.segments[edge.s].splice(edge.i + 1, 0, [e.offsetX, e.offsetY]);
+            state.segments[edge.s].splice(edge.i + 1, 0, [wx, wy]);
             state.activeSeg = edge.s;
           } else {
-            state.segments[state.activeSeg].push([e.offsetX, e.offsetY]);
+            state.segments[state.activeSeg].push([wx, wy]);
           }
         }
       } else {
@@ -222,7 +268,8 @@ function bindCanvasEvents(canvas: HTMLCanvasElement): void {
   });
 
   canvas.addEventListener("dblclick", (e) => {
-    const hit = nearestPoint(e.offsetX, e.offsetY);
+    const [wx, wy] = toWorld(e.offsetX, e.offsetY);
+    const hit = nearestPoint(wx, wy, hitRadius());
     if (!hit) return;
     pushHistory();
     removeFromSel(hit.s, hit.i);
@@ -494,6 +541,18 @@ function bindButtonEvents(canvas: HTMLCanvasElement): void {
 // ── keyboard ─────────────────────────────────────────────────────────────────
 function bindKeyEvents(): void {
   document.addEventListener("keydown", (e) => {
+    // Space → pan mode (unless focus is in an input)
+    if (e.key === " " && !(e.target as HTMLElement).matches("input, textarea, select")) {
+      e.preventDefault();
+      spaceDown = true;
+      return;
+    }
+    // 0 → reset viewport
+    if (e.key === "0" && !e.metaKey && !e.ctrlKey) {
+      state.viewport = { x: 0, y: 0, scale: 1 };
+      draw();
+      return;
+    }
     if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       if (e.shiftKey) { if (redo()) draw(); }
@@ -534,6 +593,9 @@ function bindKeyEvents(): void {
     }
     clearSel();
     draw();
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.key === " ") { spaceDown = false; panActive = false; }
   });
 }
 

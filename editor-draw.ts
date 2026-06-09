@@ -37,19 +37,21 @@ function drawCurve(samples: number[][], color: string, width = 2, dash: number[]
 
 function drawPolygon(pts: number[][], closed = false): void {
   if (pts.length < 2) return;
+  const inv = 1 / state.viewport.scale;
   ctx.beginPath();
   ctx.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
   if (closed) ctx.closePath();
   ctx.strokeStyle = "#555";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = inv;
+  ctx.setLineDash([4 * inv, 4 * inv]);
   ctx.stroke();
   ctx.setLineDash([]);
 }
 
 function drawPoints(pts: number[][], segIdx: number, isActive: boolean): void {
   const { hover } = state;
+  const inv = 1 / state.viewport.scale;
   ctx.globalAlpha = curveStyles.points.opacity;
   for (let i = 0; i < pts.length; i++) {
     const isSel = isSelected(segIdx, i);
@@ -58,7 +60,7 @@ function drawPoints(pts: number[][], segIdx: number, isActive: boolean): void {
     ctx.arc(
       pts[i][0],
       pts[i][1],
-      isSel ? 7 : isActive || isHov ? 6 : 4,
+      (isSel ? 7 : isActive || isHov ? 6 : 4) * inv,
       0,
       Math.PI * 2,
     );
@@ -74,7 +76,7 @@ function drawPoints(pts: number[][], segIdx: number, isActive: boolean): void {
     ctx.fill();
     if (isActive || isSel || isHov) {
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = isSel ? 2 : 1;
+      ctx.lineWidth = (isSel ? 2 : 1) * inv;
       ctx.stroke();
     }
   }
@@ -114,11 +116,14 @@ function updateSVGPreview(): void {
 // ── main draw ────────────────────────────────────────────────────────────────
 export function draw(): void {
   const { segments, activeSeg, selection, rectSelect } = state;
+  const { x: vpX, y: vpY, scale } = state.viewport;
   ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  ctx.save();
+  ctx.transform(scale, 0, 0, scale, vpX, vpY);
 
   if (!segments.some((s) => s.length > 0)) {
     ctx.fillStyle = "#555";
-    ctx.fillText("Click to add control points", 20, 40);
+    ctx.fillText("Click to add control points", 20 / scale, 40 / scale);
   }
 
   const N = 300;
@@ -186,11 +191,12 @@ export function draw(): void {
 
   // Edge-insert preview: small open circle at projected position
   const { hoverEdge } = state;
+  const inv = 1 / scale;
   if (hoverEdge && !state.drag && !rectSelect) {
     ctx.beginPath();
-    ctx.arc(hoverEdge.px, hoverEdge.py, 5, 0, Math.PI * 2);
+    ctx.arc(hoverEdge.px, hoverEdge.py, 5 * inv, 0, Math.PI * 2);
     ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * inv;
     ctx.stroke();
   }
 
@@ -200,13 +206,15 @@ export function draw(): void {
     const rw = Math.abs(rectSelect.x1 - rectSelect.x0);
     const rh = Math.abs(rectSelect.y1 - rectSelect.y0);
     ctx.strokeStyle = "#5af";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 2]);
+    ctx.lineWidth = inv;
+    ctx.setLineDash([4 * inv, 2 * inv]);
     ctx.strokeRect(rx, ry, rw, rh);
     ctx.fillStyle = "rgba(85,170,255,0.06)";
     ctx.fillRect(rx, ry, rw, rh);
     ctx.setLineDash([]);
   }
+
+  ctx.restore();
 
   // Update split / join button label and enabled state
   const btn = document.getElementById("btnSplit") as HTMLButtonElement;

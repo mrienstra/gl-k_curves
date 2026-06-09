@@ -25,7 +25,8 @@ interface State {
   hoverEdge: { s: number; i: number; px: number; py: number } | null;
   rectSelect: { x0: number; y0: number; x1: number; y1: number } | null;
   dragDelta: { lastX: number; lastY: number } | null;
-  mouseDownPos: { x: number; y: number } | null;
+  mouseDownPos: { x: number; y: number } | null; // screen coords
+  viewport: { x: number; y: number; scale: number };
 }
 
 export const state: State = {
@@ -46,9 +47,10 @@ export const state: State = {
   selection: new Set(), // Set of "s:i" strings — selected points
   hover: null, // { s, i } or null — point under cursor
   hoverEdge: null, // { s, i, px, py } or null — edge under cursor (insert preview)
-  rectSelect: null, // { x0, y0, x1, y1 } or null — marquee in progress
-  dragDelta: null, // { lastX, lastY } for multi-point move
-  mouseDownPos: null,
+  rectSelect: null, // { x0, y0, x1, y1 } or null — marquee in progress (world coords)
+  dragDelta: null, // { lastX, lastY } for multi-point move (world coords)
+  mouseDownPos: null, // screen coords — used only for click-vs-drag distance check
+  viewport: { x: 0, y: 0, scale: 1 },
 };
 
 // ── selection helpers ────────────────────────────────────────────────────────
