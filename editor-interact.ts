@@ -455,6 +455,7 @@ function bindButtonEvents(canvas: HTMLCanvasElement): void {
       styles: collectStyles() as any,
       closedSet: state.closed,
       closedOptsMap: state.closedOpts,
+      simplify: (document.getElementById("chkSimplify") as HTMLInputElement).checked,
     });
     const a = Object.assign(document.createElement("a"), {
       href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
