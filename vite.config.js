@@ -4,11 +4,30 @@ import { resolve } from 'path';
 export default defineConfig(({ mode }) => {
   const base = '/gl-k_curves/';
 
-  // `npm run build:render` — standalone bundle for size inspection
+  // `npm run build:render-path` — GL-k path format renderer
+  if (mode === 'render-path-lib') {
+    return {
+      base,
+      build: {
+        emptyOutDir: false,
+        lib: {
+          entry:    resolve(__dirname, 'glk-render-path.ts'),
+          formats:  ['es'],
+          fileName: () => 'glk-render-path.js',
+        },
+        rollupOptions: {
+          external: ['svg-path-simplify'],
+        },
+      },
+    };
+  }
+
+  // `npm run build:render` — JSON format renderer
   if (mode === 'render-lib') {
     return {
       base,
       build: {
+        emptyOutDir: false,
         lib: {
           entry:    resolve(__dirname, 'glk-render.ts'),
           formats:  ['es'],
